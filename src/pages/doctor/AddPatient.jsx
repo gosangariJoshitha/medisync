@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { User, Pill, CheckCircle, ArrowRight, ArrowLeft } from "lucide-react";
-import { motion } from "framer-motion";
+
 import PatientInfoForm from "../../components/doctor/PatientInfoForm";
 import MedicineForm from "../../components/doctor/MedicineForm";
 import ReviewPatient from "../../components/doctor/ReviewPatient";
@@ -132,7 +132,7 @@ export default function AddPatient() {
   );
 }
 
-function StepIndicator({ num, label, icon, active, current }) {
+function StepIndicator({ label, icon, active, current }) {
   return (
     <div className="flex flex-col items-center bg-white px-2">
       <div

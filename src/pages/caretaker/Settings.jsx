@@ -1,0 +1,136 @@
+import { useState, useEffect } from "react";
+import { User, Phone, Mail, Save, LogOut } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { db } from "../../firebase";
+
+export default function Settings() {
+  const { currentUser, logout } = useAuth();
+  const [profile, setProfile] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+  });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    async function fetchProfile() {
+      if (currentUser) {
+        const snap = await getDoc(doc(db, "users", currentUser.uid));
+        if (snap.exists()) {
+          const data = snap.data();
+          setProfile({
+            fullName: data.fullName || "",
+            email: data.email || currentUser.email,
+            phone: data.phone || "",
+          });
+        }
+      }
+    }
+    fetchProfile();
+  }, [currentUser]);
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        fullName: profile.fullName,
+        phone: profile.phone,
+      });
+      alert("Profile updated successfully!");
+    } catch (error) {
+      console.error(error);
+      alert("Failed to update profile.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (e) => {
+    setProfile({ ...profile, [e.target.name]: e.target.value });
+  };
+
+  return (
+    <div className="fade-in max-w-2xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
+        <User /> Account Settings
+      </h1>
+
+      <div className="card mb-6">
+        <form onSubmit={handleUpdate} className="space-y-4">
+          <div className="form-group">
+            <label className="label">Full Name</label>
+            <div className="relative">
+              <User
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+              />
+              <input
+                name="fullName"
+                value={profile.fullName}
+                onChange={handleChange}
+                className="input pl-10"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="label">Email Address</label>
+            <div className="relative">
+              <Mail
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+              />
+              <input
+                value={profile.email}
+                className="input pl-10 bg-gray-50"
+                disabled
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="label">Phone Number</label>
+            <div className="relative">
+              <Phone
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+              />
+              <input
+                name="phone"
+                value={profile.phone}
+                onChange={handleChange}
+                className="input pl-10"
+                placeholder="+1 234..."
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-4">
+            <button
+              disabled={loading}
+              className="btn btn-primary flex items-center gap-2"
+            >
+              {loading ? (
+                "Saving..."
+              ) : (
+                <>
+                  <Save size={18} /> Save Changes
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <button
+        onClick={logout}
+        className="btn w-full bg-red-50 text-red-600 hover:bg-red-100 border-red-200 flex items-center justify-center gap-2"
+      >
+        <LogOut size={18} /> Logout
+      </button>
+    </div>
+  );
+}

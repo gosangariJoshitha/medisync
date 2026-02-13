@@ -1,12 +1,6 @@
 import { useEffect, useState } from "react";
 import { db } from "../../firebase";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  onSnapshot,
-} from "firebase/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { CheckCircle, XCircle, Clock } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -17,7 +11,6 @@ export default function MonitorPatients() {
 
   useEffect(() => {
     if (!currentUser) return;
-    setLoading(true);
 
     const q = query(
       collection(db, "users"),
@@ -73,7 +66,7 @@ export default function MonitorPatients() {
                 </td>
               </tr>
             ) : (
-              patients.map((patient, index) => (
+              patients.map((patient) => (
                 <tr
                   key={patient.id}
                   className="border-b last:border-0 hover:bg-gray-50 transition"

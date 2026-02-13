@@ -2,14 +2,8 @@ import { useEffect, useState } from "react";
 import { Search, User, Filter } from "lucide-react";
 import { Link } from "react-router-dom";
 import { db } from "../../firebase";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  onSnapshot,
-} from "firebase/firestore";
-import { motion } from "framer-motion";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { motion as Motion } from "framer-motion";
 import { useAuth } from "../../contexts/AuthContext";
 
 export default function ViewPatients() {
@@ -20,7 +14,7 @@ export default function ViewPatients() {
 
   useEffect(() => {
     if (!currentUser) return;
-    setLoading(true);
+
     const q = query(
       collection(db, "users"),
       where("doctorUid", "==", currentUser.uid),
@@ -95,7 +89,7 @@ export default function ViewPatients() {
 
 function PatientCard({ patient }) {
   return (
-    <motion.div className="card" whileHover={{ y: -5 }}>
+    <Motion.div className="card" whileHover={{ y: -5 }}>
       <div className="flex justify-between items-start mb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
@@ -150,6 +144,6 @@ function PatientCard({ patient }) {
       >
         View Details
       </Link>
-    </motion.div>
+    </Motion.div>
   );
 }

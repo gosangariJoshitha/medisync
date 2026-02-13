@@ -2,47 +2,33 @@ import { useEffect, useState } from "react";
 import { db } from "../../firebase";
 import {
   collection,
-  query,
-  getDocs,
-  doc,
   updateDoc,
   increment,
-  getDoc,
+  doc,
   onSnapshot,
 } from "firebase/firestore"; // Added onSnapshot
 import { useAuth } from "../../contexts/AuthContext";
 import { CheckCircle, XCircle, Clock, Flame, RotateCcw } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 import { getSmartMessage } from "../../services/mlService";
 
 export default function PatientHome() {
   const { currentUser } = useAuth();
   const [medicines, setMedicines] = useState([]);
   const [userStats, setUserStats] = useState({ streak: 0, adherence: 100 });
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!currentUser) return;
 
-    setLoading(true);
-
     // 1. Real-time Medicines
     const medsRef = collection(db, "users", currentUser.uid, "medicines");
-    const unsubscribeMeds = onSnapshot(
-      medsRef,
-      (snapshot) => {
-        const medsList = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setMedicines(medsList);
-        setLoading(false);
-      },
-      (error) => {
-        console.error("Error fetching medicines real-time:", error);
-        setLoading(false);
-      },
-    );
+    const unsubscribeMeds = onSnapshot(medsRef, (snapshot) => {
+      const medsList = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setMedicines(medsList);
+    });
 
     // 2. Real-time User Stats
     const userRef = doc(db, "users", currentUser.uid);
@@ -91,7 +77,7 @@ export default function PatientHome() {
   return (
     <div>
       <h1 className="text-2xl font-semibold mb-2">Today's Schedule</h1>
-      <motion.div
+      <Motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className="mb-6 p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg shadow-lg"
@@ -105,7 +91,7 @@ export default function PatientHome() {
               )
             : "Loading insights..."}
         </p>
-      </motion.div>
+      </Motion.div>
 
       {/* Quick Summary Cards */}
       <div className="grid grid-cols-3 gap-6 mb-8">
@@ -154,7 +140,7 @@ export default function PatientHome() {
   );
 }
 
-function TimelineSection({ title, medicines, onAction }) {
+function TimelineSection({ medicines, onAction }) {
   if (medicines.length === 0)
     return (
       <p className="text-muted italic">No medicines scheduled for today.</p>
@@ -178,7 +164,7 @@ function MedicineCard({ med, onAction }) {
   };
 
   return (
-    <motion.div
+    <Motion.div
       layout
       className="card flex items-center justify-between p-4"
       style={{
@@ -238,6 +224,6 @@ function MedicineCard({ med, onAction }) {
           {status}
         </div>
       )}
-    </motion.div>
+    </Motion.div>
   );
 }

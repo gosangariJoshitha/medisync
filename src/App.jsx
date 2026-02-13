@@ -21,6 +21,7 @@ import MonitorPatients from "./pages/doctor/MonitorPatients";
 import RiskPatients from "./pages/doctor/RiskPatients";
 import Reports from "./pages/doctor/Reports";
 import PatientDetails from "./pages/doctor/PatientDetails";
+import DoctorSettings from "./pages/doctor/Settings";
 
 import PatientLayout from "./components/patient/PatientLayout";
 import PatientHome from "./pages/patient/PatientHome";
@@ -32,6 +33,7 @@ import Settings from "./pages/patient/Settings";
 
 import CaretakerLayout from "./components/caretaker/CaretakerLayout";
 import CaretakerHome from "./pages/caretaker/CaretakerHome";
+import CaretakerSettings from "./pages/caretaker/Settings";
 import PatientMonitor from "./pages/caretaker/PatientMonitor";
 
 function App() {
@@ -44,7 +46,10 @@ function App() {
             <Route path="/login" element={<Login />} />
 
             {/* Registration Routes */}
-            <Route path="/register/role-selection" element={<RegisterSelection />} />
+            <Route
+              path="/register/role-selection"
+              element={<RegisterSelection />}
+            />
             <Route path="/register/patient" element={<RegisterPatient />} />
             <Route path="/register/doctor" element={<RegisterDoctor />} />
           </Route>
@@ -63,7 +68,7 @@ function App() {
           <Route
             path="/dashboard/doctor"
             element={
-              <ProtectedRoute allowedRoles={['doctor']}>
+              <ProtectedRoute allowedRoles={["doctor"]}>
                 <DoctorLayout />
               </ProtectedRoute>
             }
@@ -77,6 +82,7 @@ function App() {
             <Route path="reports" element={<Reports />} />
             <Route path="patient/:id" element={<PatientDetails />} />
             <Route path="patient/:id" element={<PatientDetails />} />
+            <Route path="settings" element={<DoctorSettings />} />
             {/* Other sub-routes will be added here */}
           </Route>
 
@@ -84,7 +90,7 @@ function App() {
           <Route
             path="/dashboard/patient"
             element={
-              <ProtectedRoute allowedRoles={['patient']}>
+              <ProtectedRoute allowedRoles={["patient"]}>
                 <PatientLayout />
               </ProtectedRoute>
             }
@@ -102,7 +108,7 @@ function App() {
           <Route
             path="/dashboard/caretaker"
             element={
-              <ProtectedRoute allowedRoles={['caretaker']}>
+              <ProtectedRoute allowedRoles={["caretaker"]}>
                 <CaretakerLayout />
               </ProtectedRoute>
             }

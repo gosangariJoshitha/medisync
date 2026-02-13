@@ -1,8 +1,27 @@
 import { Search, Bell, Settings, User, QrCode, LogOut } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../../firebase";
 
 export default function CaretakerTopBar({ title }) {
-  const { currentUser, logout } = useAuth();
+  const { logout, currentUser } = useAuth();
+  const [name, setName] = useState("");
+
+  useEffect(() => {
+    async function fetchName() {
+      if (currentUser) {
+        const snap = await getDoc(doc(db, "users", currentUser.uid));
+        if (snap.exists()) {
+          setName(
+            snap.data().fullName || currentUser.displayName || "Caretaker",
+          );
+        }
+      }
+    }
+    fetchName();
+  }, [currentUser]);
 
   return (
     <header
@@ -23,6 +42,11 @@ export default function CaretakerTopBar({ title }) {
 
       {/* Right Actions */}
       <div className="flex items-center gap-4">
+        <div className="hidden md:block text-right mr-2">
+          <p className="text-sm text-muted">Welcome,</p>
+          <p className="text-sm font-bold text-primary">{name}</p>
+        </div>
+
         <button
           className="btn btn-outline"
           style={{ padding: "0.5rem", border: "none" }}
@@ -30,12 +54,18 @@ export default function CaretakerTopBar({ title }) {
           <Bell size={20} className="text-muted" />
         </button>
 
-        <button
+        <Link
+          to="/dashboard/caretaker/settings"
           className="btn btn-outline"
-          style={{ padding: "0.5rem", border: "none" }}
+          style={{
+            padding: "0.5rem",
+            border: "none",
+            display: "flex",
+            alignItems: "center",
+          }}
         >
-          <User size={20} className="text-muted" />
-        </button>
+          <Settings size={20} className="text-muted" />
+        </Link>
 
         <button
           onClick={() => logout()}

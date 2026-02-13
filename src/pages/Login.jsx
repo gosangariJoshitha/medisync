@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { doc, getDoc } from "firebase/firestore"; // Import doc, getDoc
+import { db } from "../firebase"; // Import db
 import { User, Stethoscope, HeartHandshake, ArrowLeft } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 
 export default function Login() {
   const [role, setRole] = useState("doctor");
@@ -198,7 +200,7 @@ function RoleToggle({ active, onClick, icon, label }) {
       {icon}
       <span className="text-sm">{label}</span>
       {active && (
-        <motion.div layoutId="active-pill" style={{ position: "absolute" }} />
+        <Motion.div layoutId="active-pill" style={{ position: "absolute" }} />
       )}
     </button>
   );

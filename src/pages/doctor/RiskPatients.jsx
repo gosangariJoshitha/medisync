@@ -1,14 +1,8 @@
 import { useEffect, useState } from "react";
 import { db } from "../../firebase";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  onSnapshot,
-} from "firebase/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { AlertTriangle, Phone } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 import { calculateRiskScore } from "../../services/mlService";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -19,7 +13,6 @@ export default function RiskPatients() {
 
   useEffect(() => {
     if (!currentUser) return;
-    setLoading(true);
 
     const q = query(
       collection(db, "users"),
@@ -61,7 +54,7 @@ export default function RiskPatients() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {patients.map((patient) => (
-          <motion.div
+          <Motion.div
             key={patient.id}
             className="card border-l-4 border-l-red-500"
             whileHover={{ y: -5 }}
@@ -113,7 +106,7 @@ export default function RiskPatients() {
               </button>
               <button className="btn btn-outline flex-1">View Report</button>
             </div>
-          </motion.div>
+          </Motion.div>
         ))}
         {!loading && patients.length === 0 && (
           <div className="col-span-full text-center py-10 card">

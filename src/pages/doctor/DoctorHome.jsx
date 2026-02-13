@@ -8,15 +8,9 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { db } from "../../firebase";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  onSnapshot,
-} from "firebase/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { useAuth } from "../../contexts/AuthContext";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 
 export default function DoctorHome() {
   const { currentUser } = useAuth();
@@ -27,12 +21,10 @@ export default function DoctorHome() {
     critical: 0,
   });
   const [recentAlerts, setRecentAlerts] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!currentUser) return;
 
-    setLoading(true);
     // Fetch Doctor's Patients Real-time
     const q = query(
       collection(db, "users"),
@@ -76,11 +68,9 @@ export default function DoctorHome() {
           }));
 
         setRecentAlerts(alerts);
-        setLoading(false);
       },
       (error) => {
         console.error("Error loading dashboard", error);
-        setLoading(false);
       },
     );
 
@@ -224,7 +214,7 @@ function StatCard({ label, value, color }) {
 function ActionCard({ to, icon, label, desc, color }) {
   return (
     <Link to={to}>
-      <motion.div
+      <Motion.div
         className="card"
         whileHover={{ y: -5 }}
         style={{ height: "100%", cursor: "pointer", textAlign: "center" }}
@@ -246,7 +236,7 @@ function ActionCard({ to, icon, label, desc, color }) {
         </div>
         <h3 style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{label}</h3>
         <p className="text-sm text-muted">{desc}</p>
-      </motion.div>
+      </Motion.div>
     </Link>
   );
 }
