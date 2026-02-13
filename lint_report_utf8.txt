@@ -1,0 +1,223 @@
+﻿
+> medisync@0.0.0 lint
+> eslint .
+
+
+C:\Users\praty\OneDrive\Desktop\medisync\src\components\caretaker\CaretakerTopBar.jsx
+  5:11  error  'currentUser' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\praty\OneDrive\Desktop\medisync\src\components\doctor\DoctorTopBar.jsx
+  5:13  error  'currentUser' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\praty\OneDrive\Desktop\medisync\src\components\patient\RSsAlarm.jsx
+   3:34  error    'doc' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        no-unused-vars
+   3:39  error    'getDoc' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     no-unused-vars
+  44:25  error    Error: Cannot access variable before it is declared
+
+`triggerAlarm` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  42 |
+  43 |                     if (!seenAlarms.includes(alarmId)) {
+> 44 |                         triggerAlarm(med, currentTime);
+     |                         ^^^^^^^^^^^^ `triggerAlarm` accessed before it is declared
+  45 |                         seenAlarms.push(alarmId);
+  46 |                         localStorage.setItem('seenAlarms', JSON.stringify(seenAlarms));
+  47 |                     }
+
+  56 |     }, [medicines]);
+  57 |
+> 58 |     const triggerAlarm = (med, time) => {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 59 |         setAlarmActive({ medName: med.name, time });
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 60 |         playAlertSound();
+     ΓÇª
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 67 |         }
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 68 |     };
+     | ^^^^^^^ `triggerAlarm` is declared here
+  69 |
+  70 |     const playAlertSound = () => {
+  71 |         // Simple beep using AudioContext or a hosted file.   react-hooks/immutability
+  56:8   warning  React Hook useEffect has missing dependencies: 'TIME_MAPPING' and 'triggerAlarm'. Either include them or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              react-hooks/exhaustive-deps
+
+C:\Users\praty\OneDrive\Desktop\medisync\src\contexts\AuthContext.jsx
+  13:17  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\praty\OneDrive\Desktop\medisync\src\firebase.js
+  17:7  error  'analytics' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\praty\OneDrive\Desktop\medisync\src\pages\Landing.jsx
+  2:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\praty\OneDrive\Desktop\medisync\src\pages\Login.jsx
+   5:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  40:25  error  'doc' is not defined                                                           no-undef
+  40:29  error  'db' is not defined                                                            no-undef
+  41:32  error  'getDoc' is not defined                                                        no-undef
+
+C:\Users\praty\OneDrive\Desktop\medisync\src\pages\RegisterSelection.jsx
+  3:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\praty\OneDrive\Desktop\medisync\src\pages\caretaker\CaretakerHome.jsx
+    6:61  error  'getDoc' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          no-unused-vars
+    7:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          no-unused-vars
+   19:9   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  17 |         if (!currentUser) return;
+  18 |
+> 19 |         setLoading(true);
+     |         ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  20 |         // Query patients where caretakerUid == currentUser.uid
+  21 |         const q = query(collection(db, "users"), where("caretakerUid", "==", currentUser.uid));
+  22 |  react-hooks/set-state-in-effect
+  106:11  error  'border' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 no-unused-vars
+
+C:\Users\praty\OneDrive\Desktop\medisync\src\pages\caretaker\PatientMonitor.jsx
+   4:15  error  'getDoc' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                    no-unused-vars
+   4:35  error  'getDocs' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                   no-unused-vars
+  13:12  error  'appointments' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+  13:26  error  'setAppointments' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\praty\OneDrive\Desktop\medisync\src\pages\doctor\AddPatient.jsx
+    3:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  135:26  error  'num' is defined but never used                                                no-unused-vars
+
+C:\Users\praty\OneDrive\Desktop\medisync\src\pages\doctor\DoctorHome.jsx
+  15:3   error  'getDocs' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          no-unused-vars
+  19:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           no-unused-vars
+  30:10  error  'loading' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 no-unused-vars
+  35:5   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  33 |     if (!currentUser) return;
+  34 |
+> 35 |     setLoading(true);
+     |     ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  36 |     // Fetch Doctor's Patients Real-time
+  37 |     const q = query(
+  38 |       collection(db, "users"),  react-hooks/set-state-in-effect
+
+C:\Users\praty\OneDrive\Desktop\medisync\src\pages\doctor\MonitorPatients.jsx
+   7:3   error  'getDocs' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     no-unused-vars
+  20:5   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  18 |   useEffect(() => {
+  19 |     if (!currentUser) return;
+> 20 |     setLoading(true);
+     |     ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  21 |
+  22 |     const q = query(
+  23 |       collection(db, "users"),  react-hooks/set-state-in-effect
+  76:38  error  'index' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  no-unused-vars
+
+C:\Users\praty\OneDrive\Desktop\medisync\src\pages\doctor\PatientDetails.jsx
+   4:15  error  'getDoc' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        no-unused-vars
+   4:35  error  'getDocs' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       no-unused-vars
+  15:9   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  13 |
+  14 |     useEffect(() => {
+> 15 |         setLoading(true);
+     |         ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  16 |         // 1. Real-time Patient Details
+  17 |         const docRef = doc(db, "users", id);
+  18 |         const unsubscribePatient = onSnapshot(docRef, (docSnap) => {  react-hooks/set-state-in-effect
+
+C:\Users\praty\OneDrive\Desktop\medisync\src\pages\doctor\Reports.jsx
+  3:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\praty\OneDrive\Desktop\medisync\src\pages\doctor\RiskPatients.jsx
+   7:3   error  'getDocs' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     no-unused-vars
+  11:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      no-unused-vars
+  22:5   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  20 |   useEffect(() => {
+  21 |     if (!currentUser) return;
+> 22 |     setLoading(true);
+     |     ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  23 |
+  24 |     const q = query(
+  25 |       collection(db, "users"),  react-hooks/set-state-in-effect
+
+C:\Users\praty\OneDrive\Desktop\medisync\src\pages\doctor\ViewPatients.jsx
+   9:3   error  'getDocs' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      no-unused-vars
+  12:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       no-unused-vars
+  23:5   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  21 |   useEffect(() => {
+  22 |     if (!currentUser) return;
+> 23 |     setLoading(true);
+     |     ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  24 |     const q = query(
+  25 |       collection(db, "users"),
+  26 |       where("doctorUid", "==", currentUser.uid),  react-hooks/set-state-in-effect
+
+C:\Users\praty\OneDrive\Desktop\medisync\src\pages\patient\MyMedicines.jsx
+   5:22  error  'getDocs' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                     no-unused-vars
+   5:55  error  'updateDoc' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                   no-unused-vars
+  11:12  error  'loading' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u            no-unused-vars
+  39:11  error  'handleAddMedicine' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  39:38  error  'newMed' is defined but never used                                                                 no-unused-vars
+
+C:\Users\praty\OneDrive\Desktop\medisync\src\pages\patient\PatientHome.jsx
+    5:3   error  'query' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        no-unused-vars
+    6:3   error  'getDocs' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      no-unused-vars
+   10:3   error  'getDoc' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       no-unused-vars
+   15:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       no-unused-vars
+   22:10  error  'loading' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             no-unused-vars
+   27:5   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  25 |     if (!currentUser) return;
+  26 |
+> 27 |     setLoading(true);
+     |     ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  28 |
+  29 |     // 1. Real-time Medicines
+  30 |     const medsRef = collection(db, "users", currentUser.uid, "medicines");  react-hooks/set-state-in-effect
+  157:28  error  'title' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   no-unused-vars
+
+Γ£û 53 problems (52 errors, 1 warning)
+
