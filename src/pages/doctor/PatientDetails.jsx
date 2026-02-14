@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { db } from "../../firebase";
-import { doc, collection, onSnapshot } from "firebase/firestore";
+import { doc, collection, onSnapshot, getDocs, getDoc, addDoc } from "firebase/firestore";
 import {
   ArrowLeft,
   User,
@@ -9,6 +9,7 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
+  Send,
 } from "lucide-react";
 
 export default function PatientDetails() {
@@ -17,6 +18,9 @@ export default function PatientDetails() {
   const [medicines, setMedicines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+  const [sendingNotif, setSendingNotif] = useState(false);
+  const [notifMessage, setNotifMessage] = useState("");
+  const [notifTitle, setNotifTitle] = useState("");
 
   useEffect(() => {
     // 1. Real-time Patient Details
@@ -67,6 +71,34 @@ export default function PatientDetails() {
       unsubscribeMeds();
     };
   }, [id]);
+
+  const handleSendNotification = async () => {
+    if (!notifTitle.trim() || !notifMessage.trim()) {
+      alert("Please enter both title and message");
+      return;
+    }
+
+    try {
+      setSendingNotif(true);
+      // Send notification to patient's notifications collection
+      const collectionName = patient.sourceCollection || "users";
+      await addDoc(collection(db, collectionName, id, "notifications"), {
+        title: notifTitle,
+        message: notifMessage,
+        read: false,
+        timestamp: new Date(),
+        type: "doctor_message",
+      });
+      alert("Notification sent successfully!");
+      setNotifTitle("");
+      setNotifMessage("");
+    } catch (error) {
+      console.error("Error sending notification:", error);
+      alert("Failed to send notification");
+    } finally {
+      setSendingNotif(false);
+    }
+  };
 
   if (loading) return <div className="p-8 text-center">Loading Profile...</div>;
   if (!patient) return <div className="p-8 text-center">Patient Not Found</div>;
@@ -124,6 +156,11 @@ export default function PatientDetails() {
           active={activeTab === "history"}
           onClick={() => setActiveTab("history")}
         />
+        <TabButton
+          label="Send Message"
+          active={activeTab === "message"}
+          onClick={() => setActiveTab("message")}
+        />
       </div>
 
       {activeTab === "overview" && (
@@ -164,6 +201,59 @@ export default function PatientDetails() {
             </div>
           ))}
           {medicines.length === 0 && <p>No medicines assigned.</p>}
+        </div>
+      )}
+
+      {activeTab === "message" && (
+        <div className="card max-w-2xl">
+          <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+            <Send size={20} className="text-primary" />
+            Send Message to Patient
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Message Title
+              </label>
+              <input
+                type="text"
+                value={notifTitle}
+                onChange={(e) => setNotifTitle(e.target.value)}
+                className="input w-full"
+                placeholder="e.g., Medication Reminder, Appointment Reminder"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Message Content
+              </label>
+              <textarea
+                value={notifMessage}
+                onChange={(e) => setNotifMessage(e.target.value)}
+                className="input w-full h-32 resize-none"
+                placeholder="Enter your message here..."
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleSendNotification}
+                disabled={sendingNotif}
+                className="btn btn-primary flex items-center gap-2"
+              >
+                <Send size={16} />
+                {sendingNotif ? "Sending..." : "Send Message"}
+              </button>
+              <button
+                onClick={() => {
+                  setNotifTitle("");
+                  setNotifMessage("");
+                }}
+                className="btn btn-outline"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

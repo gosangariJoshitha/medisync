@@ -2,12 +2,15 @@ import { Search, Bell, Settings, User, QrCode, LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
 import { db } from "../../firebase";
 
 export default function CaretakerTopBar({ title }) {
   const { logout, currentUser } = useAuth();
   const [name, setName] = useState("");
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     async function fetchName() {
@@ -21,6 +24,24 @@ export default function CaretakerTopBar({ title }) {
       }
     }
     fetchName();
+
+    // Real-time Notifications
+    if (currentUser) {
+      const q = query(
+        collection(db, "users", currentUser.uid, "notifications"),
+        orderBy("timestamp", "desc"),
+        limit(10),
+      );
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const notifs = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setNotifications(notifs);
+        setUnreadCount(notifs.filter((n) => !n.read).length);
+      });
+      return () => unsubscribe();
+    }
   }, [currentUser]);
 
   return (
@@ -47,12 +68,68 @@ export default function CaretakerTopBar({ title }) {
           <p className="text-sm font-bold text-primary">{name}</p>
         </div>
 
-        <button
-          className="btn btn-outline"
-          style={{ padding: "0.5rem", border: "none" }}
-        >
-          <Bell size={20} className="text-muted" />
-        </button>
+        {/* Notifications */}
+        <div className="relative">
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="btn btn-outline border-none p-2 relative text-muted hover:text-primary hover:bg-blue-50 rounded-full"
+            title="Notifications"
+          >
+            <Bell size={20} />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+            )}
+          </button>
+
+          {showNotifications && (
+            <div className="absolute right-0 mt-2 w-full md:w-[480px] bg-white border border-gray-200 shadow-2xl rounded-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+              <div className="p-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50 flex justify-between items-center">
+                <div>
+                  <h3 className="font-bold text-base text-gray-900">Notifications</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">{unreadCount} unread</p>
+                </div>
+                <span className="text-xs text-primary cursor-pointer hover:underline font-semibold hover:text-primary/80 transition-colors">
+                  Mark all read
+                </span>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {notifications.length > 0 ? (
+                  notifications.map((notif) => (
+                    <div
+                      key={notif.id}
+                      className={`p-4 border-b transition-all cursor-pointer ${
+                        notif.read 
+                          ? "bg-white opacity-70 hover:bg-gray-50" 
+                          : "bg-blue-50 hover:bg-blue-100 border-blue-100"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${notif.read ? "bg-gray-300" : "bg-blue-500"}`}></div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900">
+                            {notif.title || "New Notification"}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{notif.message}</p>
+                          <p className="text-xs text-gray-400 mt-2 font-medium">
+                            {notif.timestamp?.toDate ? notif.timestamp.toDate().toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }) : "Just now"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-8 text-center">
+                    <Bell size={32} className="text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No notifications yet</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         <Link
           to="/dashboard/caretaker/settings"

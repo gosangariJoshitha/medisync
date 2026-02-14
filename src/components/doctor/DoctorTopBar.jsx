@@ -124,7 +124,7 @@ export default function TopBar() {
           </span>
         </div>
 
-        <div className="relative flex-1 w-[75%] max-w-none">
+        <div className="relative flex-1 w-80">
           <Search
             size={18}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
@@ -132,14 +132,14 @@ export default function TopBar() {
           <input
             type="text"
             placeholder="Search patients by name or ID..."
-            className="input w-full pl-10 pr-10 bg-gray-50 border-gray-200 focus:bg-white rounded-lg"
+            className="input w-full pl-10 pr-10 bg-gray-50 border-gray-200 focus:bg-white rounded-lg text-sm"
           />
           <button
             className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-primary hover:bg-blue-50 p-2 rounded-full transition-colors"
             title="Voice Search"
             onClick={() => alert("Listening... (Voice Search Simulation)")}
           >
-            <Mic size={20} />
+            <Mic size={18} />
           </button>
         </div>
       </div>
@@ -163,35 +163,48 @@ export default function TopBar() {
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-96 bg-white border border-gray-200 shadow-xl rounded-lg overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
-              <div className="p-3 border-b bg-gray-50 flex justify-between items-center">
-                <h3 className="font-semibold text-sm">Notifications</h3>
-                <span className="text-xs text-primary cursor-pointer hover:underline">
+            <div className="absolute right-0 mt-2 w-full md:w-[480px] bg-white border border-gray-200 shadow-2xl rounded-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+              <div className="p-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50 flex justify-between items-center">
+                <div>
+                  <h3 className="font-bold text-base text-gray-900">Notifications</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">{unreadCount} unread</p>
+                </div>
+                <span className="text-xs text-primary cursor-pointer hover:underline font-semibold hover:text-primary/80 transition-colors">
                   Mark all read
                 </span>
               </div>
-              <div className="max-h-64 overflow-y-auto">
+              <div className="max-h-80 overflow-y-auto">
                 {notifications.length > 0 ? (
                   notifications.map((notif) => (
                     <div
                       key={notif.id}
-                      className={`p-3 border-b hover:bg-gray-50 transition-colors cursor-pointer ${notif.read ? "opacity-60" : ""}`}
+                      className={`p-4 border-b transition-all cursor-pointer ${
+                        notif.read 
+                          ? "bg-white opacity-70 hover:bg-gray-50" 
+                          : "bg-blue-50 hover:bg-blue-100 border-blue-100"
+                      }`}
                     >
-                      <p className="text-sm font-medium text-gray-800">
-                        {notif.title || "New Notification"}
-                      </p>
-                      <p className="text-xs text-muted mt-1">{notif.message}</p>
-                      <p className="text-xs text-blue-500 mt-2">
-                        {notif.timestamp?.toDate().toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </p>
+                      <div className="flex items-start gap-3">
+                        <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${notif.read ? "bg-gray-300" : "bg-blue-500"}`}></div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900">
+                            {notif.title || "New Notification"}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{notif.message}</p>
+                          <p className="text-xs text-gray-400 mt-2 font-medium">
+                            {notif.timestamp?.toDate ? notif.timestamp.toDate().toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }) : "Just now"}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   ))
                 ) : (
-                  <div className="p-4 text-center text-muted text-sm">
-                    No new notifications
+                  <div className="p-8 text-center">
+                    <Bell size={32} className="text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No notifications yet</p>
                   </div>
                 )}
               </div>
