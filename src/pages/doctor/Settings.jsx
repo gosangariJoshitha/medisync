@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { db } from "../../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { updatePassword } from "firebase/auth";
 import {
   Save,
   User,
@@ -330,6 +331,32 @@ function ToggleRow({ label, desc, checked, onChange }) {
 }
 
 function SecuritySettings({ currentUser }) {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleUpdatePassword = async () => {
+    if (!newPassword || !confirmPassword) {
+      alert("Please fill in both fields");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      alert("Passwords do not match");
+      return;
+    }
+    setLoading(true);
+    try {
+      await updatePassword(currentUser, newPassword);
+      alert("Password updated successfully!");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      alert("Failed to update password: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -350,6 +377,8 @@ function SecuritySettings({ currentUser }) {
               className="input"
               type="password"
               placeholder="Enter new password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
             />
           </div>
           <div className="form-group">
@@ -358,10 +387,16 @@ function SecuritySettings({ currentUser }) {
               className="input"
               type="password"
               placeholder="Confirm new password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
             />
           </div>
-          <button className="btn btn-primary bg-gray-800 hover:bg-gray-900 border-none text-white">
-            Update Password
+          <button
+            onClick={handleUpdatePassword}
+            disabled={loading}
+            className="btn btn-primary bg-gray-800 hover:bg-gray-900 border-none text-white"
+          >
+            {loading ? "Updating..." : "Update Password"}
           </button>
         </div>
       </div>

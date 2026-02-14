@@ -22,6 +22,7 @@ import RiskPatients from "./pages/doctor/RiskPatients";
 import Reports from "./pages/doctor/Reports";
 import PatientDetails from "./pages/doctor/PatientDetails";
 import DoctorSettings from "./pages/doctor/Settings";
+import Alerts from "./pages/doctor/Alerts";
 
 import PatientLayout from "./components/patient/PatientLayout";
 import PatientHome from "./pages/patient/PatientHome";
@@ -75,6 +76,7 @@ function App() {
           >
             <Route index element={<DoctorHome />} />
             <Route path="add-patient" element={<AddPatient />} />
+            <Route path="edit-patient/:id" element={<AddPatient />} />
             <Route path="view-patients" element={<ViewPatients />} />
             <Route path="monitor" element={<MonitorPatients />} />
             <Route path="risk-patients" element={<RiskPatients />} />
@@ -82,7 +84,9 @@ function App() {
             <Route path="reports" element={<Reports />} />
             <Route path="patient/:id" element={<PatientDetails />} />
             <Route path="patient/:id" element={<PatientDetails />} />
+            <Route path="patient/:id" element={<PatientDetails />} />
             <Route path="settings" element={<DoctorSettings />} />
+            <Route path="alerts" element={<Alerts />} />
             {/* Other sub-routes will be added here */}
           </Route>
 

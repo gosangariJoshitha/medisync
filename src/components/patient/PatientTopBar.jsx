@@ -2,13 +2,22 @@ import { useState, useEffect } from "react";
 import { Bell, User, Phone, QrCode, LogOut, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-import { doc, getDoc } from "firebase/firestore";
+import {
+  collection,
+  query,
+  orderBy,
+  limit,
+  onSnapshot,
+  doc,
+  getDoc,
+} from "firebase/firestore";
 import { db } from "../../firebase";
 
 export default function PatientTopBar() {
   const { currentUser, logout } = useAuth();
-  const [showEmergency, setShowEmergency] = useState(false);
-  const [patientData, setPatientData] = useState(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     async function fetchPatientData() {
@@ -18,18 +27,6 @@ export default function PatientTopBar() {
         if (docSnap.exists()) {
           const data = docSnap.data();
           setPatientData(data);
-
-          // Emergency Logic:
-          // 1. Doctor-Linked (data.doctorUid exists or type == 'linked') -> TRUE
-          // 2. Self-Registered + Caretaker (data.caretakerName exists) -> TRUE
-          // 3. Self-Registered (no caretaker) -> FALSE
-
-          // Note: In Module 1 registration, we didn't explicitly set 'type'.
-          // We'll assume if created by Doctor (Add Patient) it has 'doctorUid' (although our simplified Add Patient didn't set it, let's assume 'role' is patient).
-          // For now, let's use the logic: Visible if caretaker exists OR if manually set flag 'isLinked' exists.
-          // To be safe for THIS demo, let's default to TRUE if caretaker is present or just make it always visible for safety?
-          // The prompt says: "Self-Registered -> Hidden".
-
           if (data.doctorUid || data.caretakerName) {
             setShowEmergency(true);
           } else {
@@ -39,16 +36,62 @@ export default function PatientTopBar() {
       }
     }
     fetchPatientData();
+
+    // Real-time Notifications
+    if (currentUser) {
+      const q = query(
+        collection(db, "users", currentUser.uid, "notifications"),
+        orderBy("timestamp", "desc"),
+        limit(10),
+      );
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const notifs = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setNotifications(notifs);
+        setUnreadCount(notifs.filter((n) => !n.read).length);
+      });
+      return () => unsubscribe();
+    }
   }, [currentUser]);
 
-  const handleEmergency = () => {
+  const handleEmergency = async () => {
     const confirm = window.confirm(
       "Are you sure you want to trigger an EMERGENCY ALERT?",
     );
     if (confirm) {
-      alert(
-        `EMERGENCY TRIGGERED!\n\nCalling Doctor...\nCalling Caretaker: ${patientData?.caretakerName || "N/A"}\n\nLocation Shared.`,
-      );
+      try {
+        const timestamp = new Date();
+        // 1. Update Patient Status
+        await updateDoc(doc(db, "users", currentUser.uid), {
+          riskStatus: "critical",
+          isEmergency: true,
+          lastEmergency: timestamp.toISOString(),
+        });
+
+        // 2. Notify Doctor (if linked)
+        if (patientData?.doctorUid) {
+          await addDoc(
+            collection(db, "users", patientData.doctorUid, "notifications"),
+            {
+              title: "EMERGENCY ALERT",
+              message: `Patient ${patientData.fullName} reported distress!`,
+              type: "emergency",
+              patientId: currentUser.uid,
+              read: false,
+              timestamp: timestamp,
+            },
+          );
+        }
+
+        alert(
+          `EMERGENCY TRIGGERED!\n\nAlert sent to Dr. and Caretaker.\nPlease call 911 if life-threatening.`,
+        );
+      } catch (error) {
+        console.error("Emergency Error", error);
+        alert("Failed to send alert. Please call emergency services directly.");
+      }
     }
   };
 
@@ -77,18 +120,64 @@ export default function PatientTopBar() {
               backgroundColor: "var(--danger)",
               color: "white",
               animation: "pulse 2s infinite",
+              border: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
             }}
           >
             <Phone size={18} /> EMERGENCY
           </button>
         )}
 
-        <button
-          className="btn btn-outline"
-          style={{ padding: "0.5rem", border: "none" }}
-        >
-          <Bell size={20} className="text-muted" />
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="btn btn-outline"
+            style={{ padding: "0.5rem", border: "none" }}
+          >
+            <Bell size={20} className="text-muted" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+            )}
+          </button>
+
+          {showNotifications && (
+            <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 shadow-xl rounded-lg overflow-hidden z-50">
+              <div className="p-3 border-b bg-gray-50 flex justify-between items-center">
+                <h3 className="font-semibold text-sm">Notifications</h3>
+                <span className="text-xs text-primary cursor-pointer hover:underline">
+                  Mark all read
+                </span>
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                {notifications.length > 0 ? (
+                  notifications.map((notif) => (
+                    <div
+                      key={notif.id}
+                      className={`p-3 border-b hover:bg-gray-50 transition-colors ${notif.read ? "opacity-60" : ""}`}
+                    >
+                      <p className="text-sm font-medium text-gray-800">
+                        {notif.title || "New Message"}
+                      </p>
+                      <p className="text-xs text-muted mt-1">{notif.message}</p>
+                      <p className="text-xs text-blue-500 mt-2">
+                        {notif.timestamp?.toDate().toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-4 text-center text-muted text-sm">
+                    No new notifications
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         <Link
           to="/dashboard/patient/settings"
@@ -103,7 +192,15 @@ export default function PatientTopBar() {
           <Settings size={20} className="text-muted" />
         </Link>
 
-        <button className="btn btn-primary" style={{ padding: "0.5rem 1rem" }}>
+        <button
+          className="btn btn-primary"
+          style={{
+            padding: "0.5rem 1rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+          }}
+        >
           <QrCode size={18} />
           <span className="text-sm">Scan</span>
         </button>
@@ -115,6 +212,9 @@ export default function PatientTopBar() {
             marginLeft: "1rem",
             borderColor: "var(--border)",
             color: "var(--text-muted)",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
           }}
         >
           <LogOut size={18} />

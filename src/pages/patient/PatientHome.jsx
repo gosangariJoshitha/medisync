@@ -8,7 +8,15 @@ import {
   onSnapshot,
 } from "firebase/firestore"; // Added onSnapshot
 import { useAuth } from "../../contexts/AuthContext";
-import { CheckCircle, XCircle, Clock, Flame, RotateCcw } from "lucide-react";
+import {
+  CheckCircle,
+  XCircle,
+  Clock,
+  Flame,
+  RotateCcw,
+  AlertCircle,
+} from "lucide-react";
+import { Link } from "react-router-dom";
 import { motion as Motion } from "framer-motion";
 import { getSmartMessage } from "../../services/mlService";
 
@@ -48,26 +56,63 @@ export default function PatientHome() {
     };
   }, [currentUser]);
 
+  // Helper to check if date is today
+  const isToday = (dateString) => {
+    if (!dateString) return false;
+    const date = new Date(dateString);
+    const today = new Date();
+    return (
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
+    );
+  };
+
   const handleAction = async (medId, action) => {
-    // In a real app, we would log this action in a subcollection 'logs' with timestamp
-    // For this prototype, we'll just toggle a local state or show an alert, and update streak
     try {
+      const todayStr = new Date().toISOString();
+
+      // 1. Update Medicine Status
+      const medRef = doc(db, "users", currentUser.uid, "medicines", medId);
+      await updateDoc(medRef, {
+        lastAction: todayStr,
+        status: action, // 'taken' or 'skipped'
+      });
+
+      // 2. Calculate Daily Progress & Adherence
+      // We need to wait a tick or use local state, but since we use onSnapshot,
+      // let's calculate based on current 'medicines' + this change.
+      // Actually, 'medicines' will update via snapshot.
+      // For immediate user doc update, let's look at current snapshot and modify this one item.
+
+      const updatedMeds = medicines.map((m) =>
+        m.id === medId ? { ...m, status: action, lastAction: todayStr } : m,
+      );
+
+      const takenCount = updatedMeds.filter(
+        (m) => m.status === "taken" && isToday(m.lastAction),
+      ).length;
+
+      const totalCount = updatedMeds.length;
+      const newAdherence =
+        totalCount > 0 ? Math.round((takenCount / totalCount) * 100) : 100;
+
+      // 3. Update User Doc
+      const userRef = doc(db, "users", currentUser.uid);
+      await updateDoc(userRef, {
+        streak: action === "taken" ? increment(1) : 0, // Simplified streak logic
+        adherenceScore: newAdherence,
+        dailyProgress: {
+          taken: takenCount,
+          total: totalCount,
+          date: todayStr.split("T")[0],
+        },
+      });
+
       if (action === "taken") {
-        const userRef = doc(db, "users", currentUser.uid);
-        await updateDoc(userRef, {
-          streak: increment(1),
-          points: increment(10), // Gamification
-        });
-        setUserStats((prev) => ({ ...prev, streak: prev.streak + 1 }));
         alert("Medicine Taken! +10 Points");
       } else {
-        // Missed/Skipped
-        const userRef = doc(db, "users", currentUser.uid);
-        await updateDoc(userRef, {
-          streak: 0,
-        });
-        setUserStats((prev) => ({ ...prev, streak: 0 }));
-        alert("Medicine Skipped. Streak Reset.");
+        alert("Medicine Skipped.");
       }
     } catch (e) {
       console.error("Action failed", e);
@@ -77,21 +122,64 @@ export default function PatientHome() {
   return (
     <div>
       <h1 className="text-2xl font-semibold mb-2">Today's Schedule</h1>
-      <Motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-6 p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg shadow-lg"
-      >
-        <p className="font-medium text-lg">
-          {userStats
-            ? getSmartMessage(
-                currentUser.displayName || "Patient",
-                userStats.streak,
-                userStats.adherence,
-              )
-            : "Loading insights..."}
-        </p>
-      </Motion.div>
+
+      {/* Caretaker Prompt */}
+      {!currentUser.caretakerUid && (
+        <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg flex justify-between items-center text-orange-800">
+          <div className="flex gap-3 items-center">
+            <AlertCircle size={24} />
+            <div>
+              <p className="font-semibold">Connect a Caretaker</p>
+              <p className="text-sm">
+                Link a family member or nurse to monitor your health.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/dashboard/patient/settings"
+            className="btn btn-sm btn-outline border-orange-300 text-orange-800 hover:bg-orange-100"
+          >
+            Link Now
+          </Link>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Smart Message */}
+        <Motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="md:col-span-2 p-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg shadow-lg flex flex-col justify-center"
+        >
+          <h2 className="text-xl font-bold mb-2">
+            Good Morning, {currentUser.displayName || "Patient"}!
+          </h2>
+          <p className="font-medium text-lg opacity-90">
+            {userStats
+              ? getSmartMessage(
+                  currentUser.displayName || "Patient",
+                  userStats.streak,
+                  userStats.adherence,
+                )
+              : "Loading insights..."}
+          </p>
+        </Motion.div>
+
+        {/* QR Code Card */}
+        <div className="card flex flex-col items-center justify-center text-center p-6">
+          <h3 className="font-semibold text-gray-800 mb-2">My Medical ID</h3>
+          <div className="bg-white p-2 rounded-lg border shadow-sm mb-2">
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${currentUser.uid}`}
+              alt="Patient QR Code"
+              className="w-28 h-28"
+            />
+          </div>
+          <p className="text-xs text-muted">
+            Scan to view basic medical profile
+          </p>
+        </div>
+      </div>
 
       {/* Quick Summary Cards */}
       <div className="grid grid-cols-3 gap-6 mb-8">
@@ -156,10 +244,20 @@ function TimelineSection({ medicines, onAction }) {
 }
 
 function MedicineCard({ med, onAction }) {
-  const [status, setStatus] = useState("pending"); // pending, taken, skipped
+  const isToday = (dateString) => {
+    if (!dateString) return false;
+    const date = new Date(dateString);
+    const today = new Date();
+    return (
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
+    );
+  };
+
+  const currentStatus = isToday(med.lastAction) ? med.status : "pending";
 
   const handleBtn = (type) => {
-    setStatus(type);
     onAction(med.id, type);
   };
 
@@ -169,9 +267,9 @@ function MedicineCard({ med, onAction }) {
       className="card flex items-center justify-between p-4"
       style={{
         borderLeft:
-          status === "taken"
+          currentStatus === "taken"
             ? "4px solid var(--secondary)"
-            : status === "skipped"
+            : currentStatus === "skipped"
               ? "4px solid var(--danger)"
               : "4px solid var(--primary)",
       }}
@@ -179,9 +277,9 @@ function MedicineCard({ med, onAction }) {
       <div className="flex items-center gap-4">
         <div
           className={`p-3 rounded-full ${
-            status === "taken"
+            currentStatus === "taken"
               ? "bg-green-100 text-green-600"
-              : status === "skipped"
+              : currentStatus === "skipped"
                 ? "bg-red-100 text-red-600"
                 : "bg-blue-100 text-blue-600"
           }`}
@@ -191,12 +289,12 @@ function MedicineCard({ med, onAction }) {
         <div>
           <h3 className="font-semibold text-lg">{med.name}</h3>
           <p className="text-sm text-muted">
-            {med.dosage} Tablet • {med.timing}
+            {med.dosage} • {med.timing}
           </p>
         </div>
       </div>
 
-      {status === "pending" ? (
+      {currentStatus === "pending" ? (
         <div className="flex gap-2">
           <button
             onClick={() => handleBtn("skipped")}
@@ -216,12 +314,12 @@ function MedicineCard({ med, onAction }) {
       ) : (
         <div
           className={`text-sm font-bold px-3 py-1 rounded-full uppercase ${
-            status === "taken"
+            currentStatus === "taken"
               ? "bg-green-100 text-green-700"
               : "bg-red-100 text-red-700"
           }`}
         >
-          {status}
+          {currentStatus}
         </div>
       )}
     </Motion.div>

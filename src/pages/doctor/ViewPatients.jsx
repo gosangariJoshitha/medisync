@@ -16,7 +16,7 @@ export default function ViewPatients() {
     if (!currentUser) return;
 
     const q = query(
-      collection(db, "users"),
+      collection(db, "patients"),
       where("doctorUid", "==", currentUser.uid),
     );
     const unsubscribe = onSnapshot(
@@ -138,12 +138,20 @@ function PatientCard({ patient }) {
         </div>
       </div>
 
-      <Link
-        to={`/dashboard/doctor/patient/${patient.id}`}
-        className="btn btn-outline w-full text-sm block text-center"
-      >
-        View Details
-      </Link>
+      <div className="flex gap-2">
+        <Link
+          to={`/dashboard/doctor/patient/${patient.id}`}
+          className="btn btn-outline flex-1 text-sm block text-center"
+        >
+          View Details
+        </Link>
+        <Link
+          to={`/dashboard/doctor/edit-patient/${patient.id}`}
+          className="btn btn-primary flex-1 text-sm block text-center"
+        >
+          Edit
+        </Link>
+      </div>
     </Motion.div>
   );
 }

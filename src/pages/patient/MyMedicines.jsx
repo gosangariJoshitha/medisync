@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, Pill, RotateCcw } from "lucide-react";
+import { Plus, Edit2, Trash2, Pill, RotateCcw, X } from "lucide-react";
+import MedicineForm from "../../components/doctor/MedicineForm";
 import { useAuth } from "../../contexts/AuthContext";
 import { db } from "../../firebase";
 import {
@@ -66,17 +67,38 @@ export default function MyMedicines() {
       )}
 
       {showForm && (
-        <AddMedicineModal
-          onClose={() => setShowForm(false)}
-          onAdd={async (med) => {
-            const docRef = await addDoc(
-              collection(db, "users", currentUser.uid, "medicines"),
-              med,
-            );
-            setMedicines([...medicines, { id: docRef.id, ...med }]);
-            setShowForm(false);
-          }}
-        />
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto py-10">
+          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white z-10">
+              <h2 className="text-xl font-bold">Add Medicine</h2>
+              <button
+                onClick={() => setShowForm(false)}
+                className="p-1 hover:bg-gray-100 rounded-full"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-4">
+              <MedicineForm
+                onClose={() => setShowForm(false)}
+                onSave={async (med) => {
+                  try {
+                    const { id, ...medData } = med;
+                    const docRef = await addDoc(
+                      collection(db, "users", currentUser.uid, "medicines"),
+                      medData,
+                    );
+                    // State update handled by onSnapshot, but we can optimistically update if we want.
+                    // onSnapshot will handle it.
+                  } catch (e) {
+                    console.error("Error adding med", e);
+                    alert("Failed to add medicine");
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -121,82 +143,6 @@ export default function MyMedicines() {
         {medicines.length === 0 && (
           <p className="text-muted italic">No medicines found.</p>
         )}
-      </div>
-    </div>
-  );
-}
-
-function AddMedicineModal({ onClose, onAdd }) {
-  const [formData, setFormData] = useState({
-    name: "",
-    dosage: "1 Tablet",
-    frequency: "Twice Daily",
-    timing: "After Meal",
-    duration: "30",
-    alertQuantity: "5",
-  });
-
-  const handleChange = (e) =>
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onAdd(formData);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg w-full max-w-md">
-        <h2 className="text-xl font-bold mb-4">Add Medicine</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="input-group">
-            <label className="label">Medicine Name</label>
-            <input
-              name="name"
-              required
-              className="input"
-              onChange={handleChange}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="input-group">
-              <label className="label">Dosage</label>
-              <input
-                name="dosage"
-                className="input"
-                placeholder="e.g. 1 Tablet"
-                onChange={handleChange}
-              />
-            </div>
-            <div className="input-group">
-              <label className="label">Frequency</label>
-              <select
-                name="frequency"
-                className="input"
-                onChange={handleChange}
-              >
-                <option>Once Daily</option>
-                <option>Twice Daily</option>
-                <option>Thrice Daily</option>
-              </select>
-            </div>
-          </div>
-          <div className="input-group">
-            <label className="label">Timing</label>
-            <select name="timing" className="input" onChange={handleChange}>
-              <option>Before Meal</option>
-              <option>After Meal</option>
-            </select>
-          </div>
-          <div className="flex justify-end gap-2 mt-6">
-            <button type="button" onClick={onClose} className="btn btn-outline">
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary">
-              Save Medicine
-            </button>
-          </div>
-        </form>
       </div>
     </div>
   );

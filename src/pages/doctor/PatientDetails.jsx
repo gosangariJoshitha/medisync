@@ -20,25 +20,46 @@ export default function PatientDetails() {
 
   useEffect(() => {
     // 1. Real-time Patient Details
-    const docRef = doc(db, "users", id);
-    const unsubscribePatient = onSnapshot(docRef, (docSnap) => {
+    // 1. Real-time Patient Details
+    // Try 'patients' first
+    const patientRef = doc(db, "patients", id);
+    const unsubscribePatient = onSnapshot(patientRef, (docSnap) => {
       if (docSnap.exists()) {
         setPatient({ id: docSnap.id, ...docSnap.data() });
+        setLoading(false); // Found in new collection
       } else {
-        setPatient(null);
+        // Fallback to 'users'
+        const userRef = doc(db, "users", id);
+        getDoc(userRef).then((userSnap) => {
+          if (userSnap.exists()) {
+            setPatient({ id: userSnap.id, ...userSnap.data() });
+          } else {
+            setPatient(null);
+          }
+          if (medicines.length === 0) setLoading(false);
+        });
       }
-      // We set loading false after initial fetch of patient,
-      // but we also have medicines to fetch.
-      // Simplified: won't set loading false here to wait for both or just let them update independently.
-      // For better UX, let's keep loading true until at least patient is found.
     });
 
     // 2. Real-time Medicines
-    const medsRef = collection(db, "users", id, "medicines");
+    // Listen to BOTH for safe migration or just 'patients' if we are sure?
+    // Let's listen to 'patients' primarily.
+    const medsRef = collection(db, "patients", id, "medicines");
     const unsubscribeMeds = onSnapshot(medsRef, (snapshot) => {
       const medsList = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setMedicines(medsList);
-      setLoading(false); // Set loading false when data arrives
+      if (medsList.length > 0) {
+        setMedicines(medsList);
+      } else {
+        // Fallback to users/medicines if empty
+        const legacyMedsRef = collection(db, "users", id, "medicines");
+        getDocs(legacyMedsRef).then((snap) => {
+          if (!snap.empty) {
+            setMedicines(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+          } else {
+            setMedicines([]);
+          }
+        });
+      }
     });
 
     return () => {
@@ -67,9 +88,13 @@ export default function PatientDetails() {
           <h1 className="text-3xl font-bold">{patient.fullName}</h1>
           <p className="text-muted text-lg">Patient ID: {patient.patientId}</p>
           <div className="flex gap-4 mt-2">
-            <span className="flex items-center gap-1 text-sm bg-gray-100 px-3 py-1 rounded">
+            <a
+              href={`tel:${patient.phone}`}
+              className="flex items-center gap-1 text-sm bg-gray-100 hover:bg-green-100 hover:text-green-700 px-3 py-1 rounded transition-colors"
+              title="Call Patient"
+            >
               <Phone size={14} /> {patient.phone}
-            </span>
+            </a>
             <span className="text-sm bg-gray-100 px-3 py-1 rounded">
               {patient.age} Yrs / {patient.gender}
             </span>

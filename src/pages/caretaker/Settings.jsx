@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { User, Phone, Mail, Save, LogOut } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { updatePassword } from "firebase/auth";
 import { db } from "../../firebase";
 
 export default function Settings() {
@@ -16,13 +17,33 @@ export default function Settings() {
   useEffect(() => {
     async function fetchProfile() {
       if (currentUser) {
-        const snap = await getDoc(doc(db, "users", currentUser.uid));
+        // Since AuthContext already fetches data into currentUser, we can just use that!
+        // But for fresh data, let's query.
+        const role = currentUser.role;
+        const collectionName =
+          role === "doctor"
+            ? "doctors"
+            : role === "patient"
+              ? "patients"
+              : role === "caretaker"
+                ? "caretakers"
+                : "users";
+
+        // Try precise collection first
+        let snap = await getDoc(doc(db, collectionName, currentUser.uid));
+
+        if (!snap.exists()) {
+          // Fallback to users
+          snap = await getDoc(doc(db, "users", currentUser.uid));
+        }
+
         if (snap.exists()) {
           const data = snap.data();
           setProfile({
             fullName: data.fullName || "",
             email: data.email || currentUser.email,
             phone: data.phone || "",
+            role: data.role, // Store role for update usage
           });
         }
       }
@@ -34,14 +55,60 @@ export default function Settings() {
     e.preventDefault();
     setLoading(true);
     try {
-      await updateDoc(doc(db, "users", currentUser.uid), {
-        fullName: profile.fullName,
-        phone: profile.phone,
-      });
+      const collectionName =
+        currentUser.role === "doctor"
+          ? "doctors"
+          : currentUser.role === "caretaker"
+            ? "caretakers"
+            : "patients";
+      // Note: currentUser.role comes from AuthContext, make sure it's available.
+      // If not, we might need to rely on 'userRole' from context if accessible, or try-catch multiple.
+      // AuthContext exposes `userRole`. Let's use `userRole` if `currentUser.role` isn't set on the object itself yet.
+      // Actually `currentUser` from AuthContext in step 1221 DOES include `...docSnap.data()`, so it HAS `role`.
+
+      const targetCollection =
+        profile.role === "doctor"
+          ? "doctors"
+          : profile.role === "caretaker"
+            ? "caretakers"
+            : profile.role === "patient"
+              ? "patients"
+              : "users";
+
+      try {
+        await updateDoc(doc(db, targetCollection, currentUser.uid), {
+          fullName: profile.fullName,
+          phone: profile.phone,
+        });
+      } catch (e) {
+        // Fallback to legacy 'users'
+        await updateDoc(doc(db, "users", currentUser.uid), {
+          fullName: profile.fullName,
+          phone: profile.phone,
+        });
+      }
       alert("Profile updated successfully!");
     } catch (error) {
       console.error(error);
       alert("Failed to update profile.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const [newPassword, setNewPassword] = useState("");
+
+  const handleUpdatePassword = async (e) => {
+    e.preventDefault();
+    if (!newPassword) return;
+    setLoading(true);
+    try {
+      await updatePassword(currentUser, newPassword);
+      alert("Password updated successfully!");
+      setNewPassword("");
+    } catch (error) {
+      console.error(error);
+      alert("Failed to update password: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -120,6 +187,31 @@ export default function Settings() {
                   <Save size={18} /> Save Changes
                 </>
               )}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div className="card mb-6">
+        <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+          Change Password
+        </h3>
+        <form onSubmit={handleUpdatePassword} className="space-y-4">
+          <div className="form-group">
+            <label className="label">New Password</label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="input"
+              placeholder="Enter new password"
+              minLength={6}
+              required
+            />
+          </div>
+          <div className="flex justify-end">
+            <button disabled={loading} className="btn btn-outline">
+              {loading ? "Updating..." : "Update Password"}
             </button>
           </div>
         </form>

@@ -28,8 +28,16 @@ export function AuthProvider({ children }) {
     );
     const user = userCredential.user;
 
+    // Determine collection based on role
+    const collectionName =
+      role === "doctor"
+        ? "doctors"
+        : role === "patient"
+          ? "patients"
+          : "caretakers";
+
     // Store user details in Firestore
-    await setDoc(doc(db, "users", user.uid), {
+    await setDoc(doc(db, collectionName, user.uid), {
       email,
       role,
       ...additionalData,
@@ -52,40 +60,53 @@ export function AuthProvider({ children }) {
 
   function logout() {
     setUserRole(null);
-    localStorage.removeItem("medisync_patient_id");
     return signOut(auth);
   }
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // Fetch role from Firestore
-        const docRef = doc(db, "users", user.uid);
-        const docSnap = await getDoc(docRef);
+        // Check 'doctors' collection first
+        let docRef = doc(db, "doctors", user.uid);
+        let docSnap = await getDoc(docRef);
+
         if (docSnap.exists()) {
-          setUserRole(docSnap.data().role);
-        }
-      } else {
-        // Check for prototype patient session
-        const localPatientId = localStorage.getItem("medisync_patient_id");
-        if (localPatientId) {
-          const docRef = doc(db, "users", localPatientId);
-          const docSnap = await getDoc(docRef);
+          setUserRole("doctor");
+          setCurrentUser({ ...user, ...docSnap.data() });
+        } else {
+          // Check 'patients' collection
+          docRef = doc(db, "patients", user.uid);
+          docSnap = await getDoc(docRef);
+
           if (docSnap.exists()) {
-            const patientData = docSnap.data();
-            setCurrentUser({
-              uid: localPatientId,
-              email: patientData.email || "patient@example.com",
-              displayName: patientData.fullName,
-            });
             setUserRole("patient");
-            setLoading(false);
-            return;
+            setCurrentUser({ ...user, ...docSnap.data() });
+          } else {
+            // Check 'caretakers' collection
+            docRef = doc(db, "caretakers", user.uid);
+            docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+              setUserRole("caretaker");
+              setCurrentUser({ ...user, ...docSnap.data() });
+            } else {
+              // Fallback to old 'users' collection for backward compatibility
+              docRef = doc(db, "users", user.uid);
+              docSnap = await getDoc(docRef);
+              if (docSnap.exists()) {
+                setUserRole(docSnap.data().role);
+                setCurrentUser({ ...user, ...docSnap.data() });
+              } else {
+                console.error("User document not found in any collection");
+                setUserRole(null);
+              }
+            }
           }
         }
+      } else {
         setUserRole(null);
+        setCurrentUser(null);
       }
-      setCurrentUser(user);
       setLoading(false);
     });
 

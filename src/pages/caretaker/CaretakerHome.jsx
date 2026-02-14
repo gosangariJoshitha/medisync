@@ -26,7 +26,7 @@ export default function CaretakerHome() {
 
     // Query patients where caretakerUid == currentUser.uid
     const q = query(
-      collection(db, "users"),
+      collection(db, "patients"),
       where("caretakerUid", "==", currentUser.uid),
     );
 
@@ -52,7 +52,7 @@ export default function CaretakerHome() {
       // We are searching by patientId (custom ID) not doc ID for UX,
       // but strictly we should query. Let's assume input implies Patient Custom ID key.
       const q = query(
-        collection(db, "users"),
+        collection(db, "patients"),
         where("patientId", "==", linkId),
       );
       const snap = await getDocs(q);
@@ -65,7 +65,7 @@ export default function CaretakerHome() {
       const patientDoc = snap.docs[0];
 
       // 2. Update patient doc with caretakerUid and caretakerName
-      await updateDoc(doc(db, "users", patientDoc.id), {
+      await updateDoc(doc(db, "patients", patientDoc.id), {
         caretakerUid: currentUser.uid,
         caretakerName: currentUser.displayName || "Guardian",
       });

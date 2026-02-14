@@ -26,7 +26,7 @@ export default function PatientMonitor() {
 
   useEffect(() => {
     // 1. Patient Details
-    const docRef = doc(db, "users", id);
+    const docRef = doc(db, "patients", id);
     const unsubscribePatient = onSnapshot(
       docRef,
       (docSnap) => {
@@ -40,14 +40,34 @@ export default function PatientMonitor() {
           }
           setPatient({ id: docSnap.id, ...data });
         } else {
-          navigate("/dashboard/caretaker");
+          // Fallback: Check 'users' collection for legacy support
+          const legacyRef = doc(db, "users", id);
+          getDoc(legacyRef).then((legacySnap) => {
+            if (legacySnap.exists()) {
+              const data = legacySnap.data();
+              if (data.caretakerUid !== currentUser.uid) {
+                alert("Access Denied: You are not linked to this patient.");
+                navigate("/dashboard/caretaker");
+                return;
+              }
+              setPatient({ id: legacySnap.id, ...data });
+
+              // Also fetch meds from legacy
+              const legacyMedsRef = collection(db, "users", id, "medicines");
+              onSnapshot(legacyMedsRef, (snap) => {
+                setMedicines(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+              });
+            } else {
+              navigate("/dashboard/caretaker");
+            }
+          });
         }
       },
       (error) => console.error("Error fetching patient", error),
     );
 
-    // 2. Meds
-    const medsRef = collection(db, "users", id, "medicines");
+    // 2. Meds (Default to patients, fallback handled above if patient not found)
+    const medsRef = collection(db, "patients", id, "medicines");
     const unsubscribeMeds = onSnapshot(
       medsRef,
       (snapshot) => {

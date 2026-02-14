@@ -27,7 +27,7 @@ export default function DoctorHome() {
 
     // Fetch Doctor's Patients Real-time
     const q = query(
-      collection(db, "users"),
+      collection(db, "patients"),
       where("doctorUid", "==", currentUser.uid),
     );
 

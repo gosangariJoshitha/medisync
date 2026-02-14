@@ -15,7 +15,7 @@ export default function RiskPatients() {
     if (!currentUser) return;
 
     const q = query(
-      collection(db, "users"),
+      collection(db, "patients"),
       where("role", "==", "patient"),
       where("doctorUid", "==", currentUser.uid),
     );

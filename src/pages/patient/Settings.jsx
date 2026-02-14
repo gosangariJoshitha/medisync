@@ -8,6 +8,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { updatePassword } from "firebase/auth";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 
@@ -25,6 +26,7 @@ export default function Settings() {
     gender: "",
   });
   const [loading, setLoading] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
 
   useEffect(() => {
     async function fetchData() {
@@ -111,6 +113,22 @@ export default function Settings() {
     }
   };
 
+  const handleUpdatePassword = async (e) => {
+    e.preventDefault();
+    if (!newPassword) return;
+    setLoading(true);
+    try {
+      await updatePassword(currentUser, newPassword);
+      alert("Password updated successfully!");
+      setNewPassword("");
+    } catch (error) {
+      console.error(error);
+      alert("Failed to update password: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleChange = (e) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
   };
@@ -183,6 +201,31 @@ export default function Settings() {
           <div className="flex justify-end">
             <button disabled={loading} className="btn btn-primary">
               {loading ? "Saving..." : "Save Profile"}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div className="card mb-6">
+        <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+          Change Password
+        </h3>
+        <form onSubmit={handleUpdatePassword} className="space-y-4">
+          <div className="form-group">
+            <label className="label">New Password</label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="input"
+              placeholder="Enter new password"
+              minLength={6}
+              required
+            />
+          </div>
+          <div className="flex justify-end">
+            <button disabled={loading} className="btn btn-outline">
+              {loading ? "Updating..." : "Update Password"}
             </button>
           </div>
         </form>

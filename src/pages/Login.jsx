@@ -33,40 +33,38 @@ export default function Login() {
     try {
       setError("");
       setLoading(true);
-      // Note: For prototype, we are using email/password authentication for all roles.
-      // In a real app, mapping Patient ID/Mobile to Email would happen here or in backend.
 
-      // Check if input is a Patient ID (starts with PAT-)
-      if (formData.identifier.startsWith("PAT-")) {
-        // Simulated Login for Patients created by Doctor
-        const userRef = doc(db, "users", formData.identifier);
-        const userSnap = await getDoc(userRef);
+      let loginIdentifier = formData.identifier.trim();
+      let password = formData.password;
 
-        if (userSnap.exists()) {
-          // Mock a successful login context update
-          // In a real app, you'd use a custom token or secondary auth system
-          // For this prototype, we'll manually set the user in AuthContext or just force navigation
-          // Since AuthContext relies on onAuthStateChanged, we can't easily inject a user without Firebase Auth
-          // workaround: We will sign in anonymously or use a dummy auth account if possible,
-          // OR we just navigate and store a "local" session in localStorage for the prototype.
+      // 1. Doctor-Linked Patient Login (PAT-...)
+      if (loginIdentifier.startsWith("PAT-")) {
+        // Construct email: PAT-1234@medisync.com
+        loginIdentifier = `${loginIdentifier}@medisync.com`;
 
-          // Let's use localStorage for the prototype patient session to avoid blocking the user
-          localStorage.setItem("medisync_patient_id", formData.identifier);
-          // Force a reload or handle context update?
-          // Better approach for prototype:
-          alert("Logged in as Patient: " + userSnap.data().fullName);
-          navigate("/dashboard/patient");
-          return;
-        } else {
-          throw new Error("Patient ID not found.");
-        }
+        // If password is empty (e.g. first login), default to identifier
+        // But for security, we should assume the user entered the password.
+        // If they didn't, we can try the default one?
+        // Let's assume the user knows the password is their ID initially.
       }
 
-      await login(formData.identifier, formData.password);
+      // 2. Caretaker Login (Mobile Number)
+      if (role === "caretaker") {
+        // Simple validation for mobile number
+        if (!/^\d{10}$/.test(formData.identifier)) {
+          throw new Error("Please enter a valid 10-digit mobile number.");
+        }
+        // Construct email: 9876543210@caretaker.medisync.com
+        loginIdentifier = `${formData.identifier}@caretaker.medisync.com`;
+        password = formData.identifier; // Password is mobile number by default
+      }
+
+      await login(loginIdentifier, password);
       // Navigation handled by useEffect
     } catch (err) {
+      console.error(err);
       setError("Failed to log in: " + err.message);
-      setLoading(false); // Only set loading false on error, otherwise wait for redirect
+      setLoading(false);
     }
   }
 
@@ -143,17 +141,19 @@ export default function Login() {
             />
           </div>
 
-          <div className="input-group">
-            <label className="label">Password</label>
-            <input
-              type="password"
-              name="password"
-              className="input"
-              required
-              value={formData.password}
-              onChange={handleChange}
-            />
-          </div>
+          {role !== "caretaker" && (
+            <div className="input-group">
+              <label className="label">Password</label>
+              <input
+                type="password"
+                name="password"
+                className="input"
+                required
+                value={formData.password}
+                onChange={handleChange}
+              />
+            </div>
+          )}
 
           <button
             disabled={loading}
