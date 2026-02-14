@@ -133,17 +133,19 @@ export default function PatientTopBar() {
         <div className="relative">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="btn btn-outline"
-            style={{ padding: "0.5rem", border: "none" }}
+            className="p-2 relative text-gray-500 hover:text-blue-600 hover:shadow-sm hover:shadow-blue-200 rounded-lg transition-all duration-300 ease-out transform hover:scale-110 active:scale-95 border-0 outline-none bg-transparent group"
+            style={{ padding: "0.5rem" }}
           >
-            <Bell size={20} className="text-muted" />
+            <Bell size={20} className="group-hover:animate-bounce transition-all duration-300" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full border-2 border-white flex items-center justify-center flex-shrink-0">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
             )}
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-full md:w-[480px] bg-white border border-gray-200 shadow-2xl rounded-xl overflow-hidden z-50">
+            <div className="absolute right-0 mt-2 w-96 bg-white border border-gray-200 shadow-2xl rounded-xl overflow-hidden z-50">
               <div className="p-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50 flex justify-between items-center">
                 <div>
                   <h3 className="font-bold text-base text-gray-900">Notifications</h3>

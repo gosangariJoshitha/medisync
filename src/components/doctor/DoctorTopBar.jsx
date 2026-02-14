@@ -116,7 +116,7 @@ export default function TopBar() {
   return (
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 sticky top-0 z-50">
       {/* Left: Welcome & Search */}
-      <div className="flex items-center gap-6 flex-1 mr-8">
+      <div className="flex items-center gap-4 min-w-0">
         <div className="hidden lg:flex items-center gap-2 text-sm whitespace-nowrap">
           <span className="text-muted">Welcome,</span>
           <span className="font-bold text-primary">
@@ -124,28 +124,32 @@ export default function TopBar() {
           </span>
         </div>
 
-        <div className="relative flex-1 w-80">
+        <div className="relative w-72 group">
           <Search
-            size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200"
           />
           <input
             type="text"
-            placeholder="Search patients by name or ID..."
-            className="input w-full pl-10 pr-10 bg-gray-50 border-gray-200 focus:bg-white rounded-lg text-sm"
+            placeholder="Search patients..."
+            className="input w-full pl-9 pr-10 bg-white border border-gray-200 shadow-sm hover:border-gray-300 focus:border-blue-400 focus:ring-1 focus:ring-blue-200 focus:bg-white focus:shadow-md rounded-lg text-sm transition-all duration-200"
           />
           <button
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-primary hover:bg-blue-50 p-2 rounded-full transition-colors"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-gray-500 hover:text-blue-600 hover:shadow-sm hover:shadow-blue-200 transition-all duration-300 ease-out transform hover:scale-110 active:scale-95 group-focus-within:text-blue-500 border-0 outline-none bg-transparent"
             title="Voice Search"
             onClick={() => alert("Listening... (Voice Search Simulation)")}
           >
-            <Mic size={18} />
+            <Mic 
+              size={16} 
+              strokeWidth={2.5}
+              className="group-hover:animate-pulse transition-all duration-300"
+            />
           </button>
         </div>
       </div>
 
       {/* Right Actions - Icons Reverted */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4 flex-shrink-0">
         {/* Notifications */}
         <div className="relative">
           <button
@@ -153,17 +157,19 @@ export default function TopBar() {
               setShowNotifications(!showNotifications);
               setShowProfileMenu(false);
             }}
-            className="btn btn-outline border-none p-2 relative text-muted hover:text-primary hover:bg-blue-50 rounded-full"
+            className="p-2 relative text-gray-500 hover:text-blue-600 hover:shadow-sm hover:shadow-blue-200 rounded-lg transition-all duration-300 ease-out transform hover:scale-110 active:scale-95 border-0 outline-none bg-transparent group"
             title="Notifications"
           >
-            <Bell size={20} />
+            <Bell size={20} className="group-hover:animate-bounce transition-all duration-300" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full border-2 border-white flex items-center justify-center flex-shrink-0">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
             )}
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-full md:w-[480px] bg-white border border-gray-200 shadow-2xl rounded-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+            <div className="absolute right-0 mt-2 w-96 bg-white border border-gray-200 shadow-2xl rounded-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
               <div className="p-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50 flex justify-between items-center">
                 <div>
                   <h3 className="font-bold text-base text-gray-900">Notifications</h3>
