@@ -245,7 +245,7 @@ export default function AddPatient() {
 
         try {
           // 3. Create Patient Document in 'patients' collection
-          const patientRef = doc(db, "patients", patientData.patientId);
+          const patientRef = doc(db, "patients", patientUid);
           await setDoc(patientRef, {
             ...patientData,
             uid: patientUid,
@@ -272,12 +272,7 @@ export default function AddPatient() {
           }
 
           // 5. Add Medicines
-          const medsRef = collection(
-            db,
-            "patients",
-            patientData.patientId,
-            "medicines",
-          );
+          const medsRef = collection(db, "patients", patientUid, "medicines");
           for (const med of medicines) {
             await addDoc(medsRef, med);
           }

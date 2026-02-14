@@ -24,7 +24,8 @@ export default function MyMedicines() {
 
     async function checkPermissions() {
       // Check permissions (One-time fetch is fine for permissions as role/link doesn't change often in session)
-      const userRef = doc(db, "users", currentUser.uid);
+      const collectionName = currentUser.sourceCollection || "users";
+      const userRef = doc(db, collectionName, currentUser.uid);
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
         const data = userSnap.data();
@@ -34,7 +35,13 @@ export default function MyMedicines() {
     checkPermissions();
 
     // Real-time Meds
-    const medsRef = collection(db, "users", currentUser.uid, "medicines");
+    const collectionName = currentUser.sourceCollection || "users";
+    const medsRef = collection(
+      db,
+      collectionName,
+      currentUser.uid,
+      "medicines",
+    );
     const unsubscribe = onSnapshot(medsRef, (snapshot) => {
       setMedicines(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
@@ -44,7 +51,8 @@ export default function MyMedicines() {
 
   const deleteMedicine = async (id) => {
     if (!window.confirm("Delete this medicine?")) return;
-    await deleteDoc(doc(db, "users", currentUser.uid, "medicines", id));
+    const collectionName = currentUser.sourceCollection || "users";
+    await deleteDoc(doc(db, collectionName, currentUser.uid, "medicines", id));
     setMedicines(medicines.filter((m) => m.id !== id));
   };
 
@@ -84,8 +92,15 @@ export default function MyMedicines() {
                 onSave={async (med) => {
                   try {
                     const { id, ...medData } = med;
+                    const collectionName =
+                      currentUser.sourceCollection || "users";
                     const docRef = await addDoc(
-                      collection(db, "users", currentUser.uid, "medicines"),
+                      collection(
+                        db,
+                        collectionName,
+                        currentUser.uid,
+                        "medicines",
+                      ),
                       medData,
                     );
                     // State update handled by onSnapshot, but we can optimistically update if we want.

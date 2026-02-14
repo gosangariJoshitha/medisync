@@ -29,7 +29,13 @@ export default function PatientHome() {
     if (!currentUser) return;
 
     // 1. Real-time Medicines
-    const medsRef = collection(db, "users", currentUser.uid, "medicines");
+    const collectionName = currentUser.sourceCollection || "users";
+    const medsRef = collection(
+      db,
+      collectionName,
+      currentUser.uid,
+      "medicines",
+    );
     const unsubscribeMeds = onSnapshot(medsRef, (snapshot) => {
       const medsList = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -39,7 +45,7 @@ export default function PatientHome() {
     });
 
     // 2. Real-time User Stats
-    const userRef = doc(db, "users", currentUser.uid);
+    const userRef = doc(db, collectionName, currentUser.uid);
     const unsubscribeUser = onSnapshot(userRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -73,7 +79,14 @@ export default function PatientHome() {
       const todayStr = new Date().toISOString();
 
       // 1. Update Medicine Status
-      const medRef = doc(db, "users", currentUser.uid, "medicines", medId);
+      const collectionName = currentUser.sourceCollection || "users"; // Should persist from AuthContext
+      const medRef = doc(
+        db,
+        collectionName,
+        currentUser.uid,
+        "medicines",
+        medId,
+      );
       await updateDoc(medRef, {
         lastAction: todayStr,
         status: action, // 'taken' or 'skipped'
@@ -98,7 +111,7 @@ export default function PatientHome() {
         totalCount > 0 ? Math.round((takenCount / totalCount) * 100) : 100;
 
       // 3. Update User Doc
-      const userRef = doc(db, "users", currentUser.uid);
+      const userRef = doc(db, collectionName, currentUser.uid);
       await updateDoc(userRef, {
         streak: action === "taken" ? increment(1) : 0, // Simplified streak logic
         adherenceScore: newAdherence,

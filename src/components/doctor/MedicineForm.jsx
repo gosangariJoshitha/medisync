@@ -12,9 +12,85 @@ export default function MedicineForm({
   const [scanning, setScanning] = useState(false);
   const fileInputRef = useRef(null);
 
-  // ... (Constants and State remain same)
+  const periodTimes = {
+    Morning: { min: "06:00", max: "11:59" },
+    Afternoon: { min: "12:00", max: "17:59" },
+    Evening: { min: "18:00", max: "21:59" },
+    Night: { min: "22:00", max: "05:59" },
+  };
 
-  // ... (calculateEndDate, handleAddKey, togglePeriod, handleTimeChange remain same)
+  const initialMedState = {
+    name: "",
+    dosage: "",
+    refillRemaining: "",
+    frequency: "Once a day",
+    startDate: new Date().toISOString().split("T")[0],
+    durationValue: "7",
+    durationUnit: "days",
+    endDate: "",
+    relationToMeal: "After meal",
+    icon: "Pill",
+    color: "#3B82F6",
+  };
+
+  const [newMed, setNewMed] = useState(initialMedState);
+  const [selectedPeriods, setSelectedPeriods] = useState([]);
+  const [specificTimes, setSpecificTimes] = useState({});
+
+  const calculateEndDate = (start, val, unit) => {
+    if (unit === "continuous") return "Continuous";
+    const date = new Date(start);
+    if (unit === "days") date.setDate(date.getDate() + parseInt(val || 0));
+    if (unit === "weeks") date.setDate(date.getDate() + parseInt(val || 0) * 7);
+    if (unit === "months") date.setMonth(date.getMonth() + parseInt(val || 0));
+    return date.toISOString().split("T")[0];
+  };
+
+  // Recalculate end date on mount
+  useEffect(() => {
+    setNewMed((prev) => ({
+      ...prev,
+      endDate: calculateEndDate(
+        prev.startDate,
+        prev.durationValue,
+        prev.durationUnit,
+      ),
+    }));
+  }, []);
+
+  const handleAddKey = (e) => {
+    const { name, value } = e.target;
+    setNewMed((prev) => {
+      const updated = { ...prev, [name]: value };
+      if (
+        name === "startDate" ||
+        name === "durationValue" ||
+        name === "durationUnit"
+      ) {
+        updated.endDate = calculateEndDate(
+          updated.startDate,
+          updated.durationValue,
+          updated.durationUnit,
+        );
+      }
+      return updated;
+    });
+  };
+
+  const togglePeriod = (p) => {
+    if (selectedPeriods.includes(p)) {
+      setSelectedPeriods(selectedPeriods.filter((item) => item !== p));
+      const newTimes = { ...specificTimes };
+      delete newTimes[p];
+      setSpecificTimes(newTimes);
+    } else {
+      setSelectedPeriods([...selectedPeriods, p]);
+    }
+  };
+
+  const handleTimeChange = (period, time) => {
+    setSpecificTimes({ ...specificTimes, [period]: time });
+  };
 
   const addMedicine = () => {
     const freqMap = { "Once a day": 1, "Twice a day": 2, "Thrice a day": 3 };

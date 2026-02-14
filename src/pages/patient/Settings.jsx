@@ -31,7 +31,8 @@ export default function Settings() {
   useEffect(() => {
     async function fetchData() {
       if (currentUser) {
-        const snap = await getDoc(doc(db, "users", currentUser.uid));
+        const collectionName = currentUser.sourceCollection || "users";
+        const snap = await getDoc(doc(db, collectionName, currentUser.uid));
         if (snap.exists() && snap.data().doctorUid) {
           setCurrentDoctor(snap.data().doctorUid);
         }
@@ -58,7 +59,8 @@ export default function Settings() {
     e.preventDefault();
     // In real app, verify doctor ID first
     try {
-      await updateDoc(doc(db, "users", currentUser.uid), {
+      const collectionName = currentUser.sourceCollection || "users";
+      await updateDoc(doc(db, collectionName, currentUser.uid), {
         doctorUid: doctorId,
         role: "patient", // Ensure role
         riskStatus: "stable", // Default
@@ -80,7 +82,8 @@ export default function Settings() {
       return;
     setLoading(true);
     try {
-      await updateDoc(doc(db, "users", currentUser.uid), {
+      const collectionName = currentUser.sourceCollection || "users";
+      await updateDoc(doc(db, collectionName, currentUser.uid), {
         caretakerUid: null,
         caretakerName: null,
       });
@@ -98,7 +101,8 @@ export default function Settings() {
     e.preventDefault();
     setLoading(true);
     try {
-      await updateDoc(doc(db, "users", currentUser.uid), {
+      const collectionName = currentUser.sourceCollection || "users";
+      await updateDoc(doc(db, collectionName, currentUser.uid), {
         fullName: profile.fullName,
         phone: profile.phone,
         age: profile.age,

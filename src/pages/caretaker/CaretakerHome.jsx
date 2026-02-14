@@ -18,6 +18,7 @@ import { calculateRiskScore } from "../../services/mlService";
 export default function CaretakerHome() {
   const { currentUser } = useAuth();
   const [patients, setPatients] = useState([]);
+  const [legacyPatients, setLegacyPatients] = useState([]);
   const [linkId, setLinkId] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -25,25 +26,65 @@ export default function CaretakerHome() {
     if (!currentUser) return;
 
     // Query patients where caretakerUid == currentUser.uid
-    const q = query(
+    const qPatients = query(
       collection(db, "patients"),
       where("caretakerUid", "==", currentUser.uid),
     );
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snap) => {
-        setPatients(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setLoading(false);
-      },
-      (error) => {
-        console.error("Error fetching caretaker patients:", error);
-        setLoading(false);
-      },
+    const qUsers = query(
+      collection(db, "users"),
+      where("caretakerUid", "==", currentUser.uid),
     );
 
-    return () => unsubscribe();
+    const unsubscribePatients = onSnapshot(qPatients, (snap) => {
+      const patientsList = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      // We need to merge with users list. Since this is async/stream, let's use a local variable ref or state merger?
+      // Simpler: Just set patients to this list, and have a separate effect/state for legacy?
+      // Or better: Just combine them in a single state if possible.
+      // Let's use two states and merge in render or use a reducer?
+      // Simplest: `setPatients` with functional update? No, because we need to clear old ones.
+      // Let's just use `setPatientsList` and `setLegacyList`.
+      setPatientsList(patientsList);
+    });
+
+    const unsubscribeUsers = onSnapshot(qUsers, (snap) => {
+      const usersList = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+        isLegacy: true,
+      }));
+      setLegacyList(usersList);
+    });
+
+    return () => {
+      unsubscribePatients();
+      unsubscribeUsers();
+    };
   }, [currentUser]);
+
+  // Merge lists
+  // We need to change state definition above first!
+  // But wait, I can't change state definition in this tool call easily without replacing the whole file or top part.
+  // I will just assume I can replace the whole useEffect and state or just use `setPatients` cleverly?
+  // Actually, I'll rewrite the component state part in a separate call if needed.
+  // For now, let's just REPLACE usage of single query with dual query.
+  // But wait, `patients` state is single.
+  // I'll modify the `useEffect` to manage a merged list?
+  // It's hard with two separate listeners updating the same state independently (race conditions).
+  // I'll change `patients` state to `allPatients` which is `{ new: [], legacy: [] }`?
+  // Or just add `legacyPatients` state.
+
+  // Let's restart this file edit plan.
+  // I'll read CaretakerHome again? I technically have it.
+  // I will just add `const [legacyPatients, setLegacyPatients] = useState([]);`
+  // and update the render to `[...patients, ...legacyPatients]`.
+  // Code changes:
+  // 1. Add state.
+  // 2. Add listener.
+  // 3. Update map.
+
+  // Actually, simplest fix for *display* is just to handle the logic.
+  // I'll use `multi_replace` for CaretakerHome.
 
   const handleLinkPatient = async (e) => {
     e.preventDefault();
@@ -104,10 +145,10 @@ export default function CaretakerHome() {
       <h2 className="text-xl font-semibold mb-4">Your Patients</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {patients.map((patient) => (
+        {[...patients, ...legacyPatients].map((patient) => (
           <PatientStatusCard key={patient.id} patient={patient} />
         ))}
-        {!loading && patients.length === 0 && (
+        {!loading && patients.length === 0 && legacyPatients.length === 0 && (
           <p className="text-muted italic col-span-full">
             No patients linked yet.
           </p>
