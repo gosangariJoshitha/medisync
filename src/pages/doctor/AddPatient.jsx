@@ -31,6 +31,8 @@ import {
   getDocs,
   updateDoc,
   deleteDoc,
+  query,
+  where,
 } from "firebase/firestore";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
@@ -216,9 +218,30 @@ export default function AddPatient() {
               await signOut(secondaryAuth);
             } catch (cErr) {
               if (cErr.code === "auth/email-already-in-use") {
-                console.log("Caretaker already exists (shared caretaker?)");
-                // In real app, we would Find UID by email (needs admin sdk)
-                // Here we simply proceed without linking specific UID if we can't get it.
+                console.log(
+                  "Caretaker already exists (linking mechanism active)",
+                );
+                // 2a. Find Caretaker UID by querying 'caretakers' collection by phone
+                // Use secondaryAuth? No, Firestore is global.
+                const q = query(
+                  collection(db, "caretakers"),
+                  where("phone", "==", patientData.caretakerPhone),
+                );
+                const querySnap = await getDocs(q);
+
+                if (!querySnap.empty) {
+                  const existingCaretaker = querySnap.docs[0];
+                  caretakerUid = existingCaretaker.id;
+                  console.log("Found existing caretaker UID:", caretakerUid);
+                } else {
+                  console.warn(
+                    "Caretaker auth exists, but no profile found in 'caretakers' collection. Cannot link.",
+                  );
+                  // Optional: Create profile for them anyway using a new UID?
+                  // No, we need their real UID. Admin SDK is needed for that.
+                  // For now, allow patient creation without linking specific caretaker UID.
+                  // Alternatively, we could fail here.
+                }
               } else {
                 throw cErr;
               }
@@ -259,16 +282,31 @@ export default function AddPatient() {
             dailyProgress: newDailyProgress,
           });
 
-          // 4. Create Caretaker Document in 'caretakers' collection
+          // 4. Create or Update Caretaker Document
           if (caretakerUid) {
-            await setDoc(doc(db, "caretakers", caretakerUid), {
-              fullName: patientData.caretakerName,
-              phone: patientData.caretakerPhone,
-              email: caretakerEmail,
-              role: "caretaker",
-              linkedPatients: [patientData.patientId],
-              createdAt: new Date().toISOString(),
-            });
+            const caretakerRef = doc(db, "caretakers", caretakerUid);
+            const caretakerSnap = await getDoc(caretakerRef);
+
+            if (caretakerSnap.exists()) {
+              // Update existing caretaker
+              const existingPatients =
+                caretakerSnap.data().linkedPatients || [];
+              if (!existingPatients.includes(patientData.patientId)) {
+                await updateDoc(caretakerRef, {
+                  linkedPatients: [...existingPatients, patientData.patientId],
+                });
+              }
+            } else {
+              // Create new caretaker profile
+              await setDoc(caretakerRef, {
+                fullName: patientData.caretakerName,
+                phone: patientData.caretakerPhone,
+                email: caretakerEmail,
+                role: "caretaker",
+                linkedPatients: [patientData.patientId],
+                createdAt: new Date().toISOString(),
+              });
+            }
           }
 
           // 5. Add Medicines

@@ -38,13 +38,11 @@ export default function CaretakerHome() {
 
     const unsubscribePatients = onSnapshot(qPatients, (snap) => {
       const patientsList = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      // We need to merge with users list. Since this is async/stream, let's use a local variable ref or state merger?
-      // Simpler: Just set patients to this list, and have a separate effect/state for legacy?
-      // Or better: Just combine them in a single state if possible.
-      // Let's use two states and merge in render or use a reducer?
-      // Simplest: `setPatients` with functional update? No, because we need to clear old ones.
-      // Let's just use `setPatientsList` and `setLegacyList`.
-      setPatientsList(patientsList);
+      setPatients((prev) => {
+        // We can't easily merge with legacy here without access to legacy state in closure if we use simple set.
+        // But we can use a functional update or just simple set since we will combine in render.
+        return patientsList;
+      });
     });
 
     const unsubscribeUsers = onSnapshot(qUsers, (snap) => {
@@ -53,7 +51,7 @@ export default function CaretakerHome() {
         ...d.data(),
         isLegacy: true,
       }));
-      setLegacyList(usersList);
+      setLegacyPatients(usersList);
     });
 
     return () => {
@@ -61,6 +59,22 @@ export default function CaretakerHome() {
       unsubscribeUsers();
     };
   }, [currentUser]);
+
+  // Combine lists for display, filtering duplicates if any (though unlikely given different collections)
+  const allPatients = [...patients, ...legacyPatients].filter(
+    (v, i, a) => a.findIndex((t) => t.patientId === v.patientId) === i,
+  );
+
+  // Loading state handling could be improved but let's assume if we have data or not.
+  // We can set loading false after first snap?
+  // For now, let's just rely on the list being empty or not.
+  // Actually, let's set loading false when we get data.
+  useEffect(() => {
+    if (patients.length > 0 || legacyPatients.length > 0) setLoading(false);
+    // Timeout to stop loading if no patients?
+    const timer = setTimeout(() => setLoading(false), 2000);
+    return () => clearTimeout(timer);
+  }, [patients, legacyPatients]);
 
   // Merge lists
   // We need to change state definition above first!
@@ -145,10 +159,10 @@ export default function CaretakerHome() {
       <h2 className="text-xl font-semibold mb-4">Your Patients</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {[...patients, ...legacyPatients].map((patient) => (
+        {allPatients.map((patient) => (
           <PatientStatusCard key={patient.id} patient={patient} />
         ))}
-        {!loading && patients.length === 0 && legacyPatients.length === 0 && (
+        {!loading && allPatients.length === 0 && (
           <p className="text-muted italic col-span-full">
             No patients linked yet.
           </p>
