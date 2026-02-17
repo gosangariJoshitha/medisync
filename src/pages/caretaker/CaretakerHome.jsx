@@ -134,9 +134,31 @@ export default function CaretakerHome() {
     }
   };
 
+  const criticalCount = allPatients.filter((p) => {
+    const risk = calculateRiskScore(p.adherenceScore || 100, 0); // Simplified risk check
+    return risk.level === "Critical";
+  }).length;
+
   return (
     <div className="fade-in">
       <h1 className="text-2xl font-semibold mb-6">Start Monitoring</h1>
+
+      {criticalCount > 0 && (
+        <div className="mb-6 p-4 bg-red-100 border border-red-200 rounded-lg flex items-center gap-4 animate-pulse">
+          <div className="p-2 bg-red-200 text-red-700 rounded-full">
+            <AlertTriangle size={24} />
+          </div>
+          <div>
+            <h3 className="font-bold text-red-800">
+              Critical Attention Required
+            </h3>
+            <p className="text-red-700 font-medium">
+              {criticalCount} patient{criticalCount > 1 ? "s" : ""} reported
+              critical status. Please check immediately.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="card mb-8 bg-blue-50 border-blue-200">
         <h3 className="font-semibold mb-2 flex items-center gap-2 text-blue-800">

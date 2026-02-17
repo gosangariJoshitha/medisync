@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { ShoppingBag, Clock, Pill, Truck, RefreshCw } from "lucide-react";
+import {
+  ShoppingBag,
+  Clock,
+  Pill,
+  Truck,
+  RefreshCw,
+  Bell,
+  Check,
+} from "lucide-react";
+import Toast from "../../components/common/Toast";
 
 export default function Pharmacy() {
   const [refills] = useState([
@@ -7,8 +16,30 @@ export default function Pharmacy() {
     { id: 2, name: "Atorvastatin 20mg", daysLeft: 22, status: "Good" },
   ]);
 
+  const [toast, setToast] = useState(null);
+  const [alarms, setAlarms] = useState({}); // { id: boolean }
+
+  const toggleAlarm = (id) => {
+    setAlarms((prev) => {
+      const newState = !prev[id];
+      setToast({
+        message: newState ? "Smart Alarm Enabled" : "Alarm Disabled",
+        type: newState ? "success" : "info",
+      });
+      return { ...prev, [id]: newState };
+    });
+  };
+
   return (
     <div className="fade-in max-w-4xl mx-auto">
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       <h1 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
         <ShoppingBag className="text-pink-500" /> Pharmacy & Refills
       </h1>
@@ -58,6 +89,7 @@ export default function Pharmacy() {
 
       <h2 className="text-xl font-bold text-gray-900 mb-4">Smart Reminders</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Suggestion 1 */}
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-start gap-4">
           <div className="bg-yellow-100 text-yellow-600 p-3 rounded-lg">
             <Pill size={24} />
@@ -71,7 +103,18 @@ export default function Pharmacy() {
               a stronger alarm?
             </p>
             <div className="mt-3 flex gap-2">
-              <button className="btn btn-xs btn-primary">Enable Alarm</button>
+              <button
+                onClick={() => toggleAlarm("friday")}
+                className={`btn btn-xs ${alarms["friday"] ? "btn-success text-white" : "btn-primary"}`}
+              >
+                {alarms["friday"] ? (
+                  <>
+                    <Check size={12} className="mr-1" /> Active
+                  </>
+                ) : (
+                  "Enable Alarm"
+                )}
+              </button>
               <button className="btn btn-xs btn-ghost text-gray-500">
                 Dismiss
               </button>
@@ -79,6 +122,7 @@ export default function Pharmacy() {
           </div>
         </div>
 
+        {/* Suggestion 2 */}
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-start gap-4">
           <div className="bg-green-100 text-green-600 p-3 rounded-lg">
             <Clock size={24} />
@@ -90,7 +134,18 @@ export default function Pharmacy() {
               your schedule.
             </p>
             <div className="mt-3 flex gap-2">
-              <button className="btn btn-xs btn-primary">Adjust Time</button>
+              <button
+                onClick={() => toggleAlarm("metformin")}
+                className={`btn btn-xs ${alarms["metformin"] ? "btn-success text-white" : "btn-primary"}`}
+              >
+                {alarms["metformin"] ? (
+                  <>
+                    <Check size={12} className="mr-1" /> Adjusted
+                  </>
+                ) : (
+                  "Adjust Time"
+                )}
+              </button>
               <button className="btn btn-xs btn-ghost text-gray-500">
                 Dismiss
               </button>

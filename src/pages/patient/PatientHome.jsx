@@ -20,10 +20,13 @@ import { Link } from "react-router-dom";
 import { motion as Motion } from "framer-motion";
 import { getSmartMessage } from "../../services/mlService";
 
+import Toast from "../../components/common/Toast";
+
 export default function PatientHome() {
   const { currentUser } = useAuth();
   const [medicines, setMedicines] = useState([]);
   const [userStats, setUserStats] = useState({ streak: 0, adherence: 100 });
+  const [toast, setToast] = useState(null); // { message, type }
 
   useEffect(() => {
     if (!currentUser) return;
@@ -123,17 +126,25 @@ export default function PatientHome() {
       });
 
       if (action === "taken") {
-        alert("Medicine Taken! +10 Points");
+        setToast({ message: "Medicine Taken! +10 Points", type: "success" });
       } else {
-        alert("Medicine Skipped.");
+        setToast({ message: "Medicine Skipped.", type: "info" });
       }
     } catch (e) {
       console.error("Action failed", e);
+      setToast({ message: "Action failed. Please try again.", type: "error" });
     }
   };
 
   return (
     <div>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
       <h1 className="text-2xl font-semibold mb-2">Today's Schedule</h1>
 
       {/* Caretaker Prompt */}
