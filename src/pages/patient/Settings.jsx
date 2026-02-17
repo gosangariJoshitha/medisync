@@ -137,9 +137,60 @@ export default function Settings() {
     setProfile({ ...profile, [e.target.name]: e.target.value });
   };
 
+  const testAlarm = () => {
+    // Check permission
+    if ("Notification" in window && Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
+
+    try {
+      // Trigger Audio Context (same logic as Alarm component to test system)
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) {
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = "square";
+        osc.frequency.setValueAtTime(440, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.5);
+        gain.gain.setValueAtTime(0.5, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.5);
+      }
+
+      new Notification("Test Alarm", {
+        body: "This is how your medicine alert will sound!",
+        icon: "/vite.svg",
+      });
+      alert("Alarm Test Sent! Did you hear a beep and see a notification?");
+    } catch (e) {
+      alert("Error testing alarm: " + e.message);
+    }
+  };
+
   return (
     <div className="fade-in max-w-2xl mx-auto">
-      <h1 className="text-2xl font-semibold mb-6">Settings</h1>
+      <h1 className="text-2xl font-bold mb-6">Settings</h1>
+
+      <div className="card mb-6">
+        <h3 className="font-semibold mb-4 text-blue-800">
+          Alarm & Notifications
+        </h3>
+        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div>
+            <p className="font-bold">Test Alarm System</p>
+            <p className="text-sm text-gray-500">
+              Check if your device plays sound and shows alerts.
+            </p>
+          </div>
+          <button onClick={testAlarm} className="btn btn-primary">
+            Test Now
+          </button>
+        </div>
+      </div>
 
       <div className="card mb-6">
         <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
