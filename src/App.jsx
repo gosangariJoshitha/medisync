@@ -31,6 +31,9 @@ import Vitals from "./pages/patient/Vitals";
 import AnalyticsRewards from "./pages/patient/AnalyticsRewards";
 import Appointments from "./pages/patient/Appointments";
 import Settings from "./pages/patient/Settings";
+import MedicineIdentifier from "./pages/patient/MedicineIdentifier";
+import DrugDetector from "./pages/patient/DrugDetector";
+import Pharmacy from "./pages/patient/Pharmacy";
 
 import CaretakerLayout from "./components/caretaker/CaretakerLayout";
 import CaretakerHome from "./pages/caretaker/CaretakerHome";
@@ -105,6 +108,9 @@ function App() {
             <Route path="analytics" element={<AnalyticsRewards />} />
             <Route path="rewards" element={<AnalyticsRewards />} />
             <Route path="appointments" element={<Appointments />} />
+            <Route path="identify" element={<MedicineIdentifier />} />
+            <Route path="verify" element={<DrugDetector />} />
+            <Route path="pharmacy" element={<Pharmacy />} />
             <Route path="settings" element={<Settings />} />
             {/* Added other patient routes later */}
           </Route>

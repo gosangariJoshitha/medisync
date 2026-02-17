@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { db } from "../../firebase";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  addDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 import {
   CheckCircle,
   XCircle,
@@ -9,6 +16,8 @@ import {
   Calendar,
   ChevronRight,
   MoreVertical,
+  Phone,
+  Activity,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { motion as Motion } from "framer-motion";
@@ -18,6 +27,7 @@ export default function MonitorPatients() {
   const { currentUser } = useAuth();
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isMonitoring, setIsMonitoring] = useState(false);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -63,6 +73,13 @@ export default function MonitorPatients() {
             <span className="w-2 h-2 rounded-full bg-red-500"></span> Critical
           </span>
         </div>
+        <button
+          onClick={() => setIsMonitoring(!isMonitoring)}
+          className={`btn btn-sm gap-2 ${isMonitoring ? "btn-error animate-pulse text-white" : "btn-outline"}`}
+        >
+          <Activity size={16} />
+          {isMonitoring ? "Stop Monitoring" : "Start Live Monitoring"}
+        </button>
       </div>
 
       {loading ? (
@@ -80,7 +97,12 @@ export default function MonitorPatients() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {patients.map((patient) => (
-            <PatientStatusCard key={patient.id} patient={patient} />
+            <PatientStatusCard
+              key={patient.id}
+              patient={patient}
+              currentUser={currentUser}
+              isMonitoring={isMonitoring}
+            />
           ))}
         </div>
       )}
@@ -88,7 +110,71 @@ export default function MonitorPatients() {
   );
 }
 
-function PatientStatusCard({ patient }) {
+function PatientStatusCard({ patient, currentUser, isMonitoring }) {
+  const [showCallModal, setShowCallModal] = useState(false);
+  const [bpm, setBpm] = useState(70 + Math.floor(Math.random() * 20));
+  const [lastAlert, setLastAlert] = useState(0);
+
+  useEffect(() => {
+    let interval;
+    if (isMonitoring) {
+      interval = setInterval(() => {
+        setBpm((prev) => {
+          const change = Math.floor(Math.random() * 10) - 4; // -4 to +5
+          let newBpm = prev + change;
+
+          // Random spike chance (5%)
+          if (Math.random() < 0.05) newBpm += 40;
+
+          return newBpm > 180 ? 180 : newBpm < 40 ? 40 : newBpm;
+        });
+      }, 2000);
+    }
+    return () => clearInterval(interval);
+  }, [isMonitoring]);
+
+  useEffect(() => {
+    if (bpm > 140 && Date.now() - lastAlert > 30000) {
+      handleCriticalVitals(patient, bpm);
+      setLastAlert(Date.now());
+    }
+  }, [bpm, isMonitoring]);
+
+  const handleSOS = async (p) => {
+    setShowCallModal(true);
+    if (!currentUser) return;
+    try {
+      await addDoc(collection(db, "users", currentUser.uid, "notifications"), {
+        title: "CRITICAL: SOS ALERT",
+        message: `Patient ${p.fullName} has triggered an SOS alert! Immediate attention required.`,
+        type: "emergency",
+        read: false,
+        patientId: p.id,
+        timestamp: serverTimestamp(),
+      });
+      // alert("SOS Alert Sent! Check the top bar."); // Removed alert in favor of modal
+    } catch (err) {
+      console.error("Error sending SOS:", err);
+      alert("Failed to send SOS.");
+    }
+  };
+
+  const handleCriticalVitals = async (p, currentBpm = 140) => {
+    if (!currentUser) return;
+    try {
+      await addDoc(collection(db, "users", currentUser.uid, "notifications"), {
+        title: "CRITICAL VITALS ALERT",
+        message: `Abnormal Vitals Detected for ${p.fullName} (Heart Rate: ${currentBpm} bpm). Immediate attention required.`,
+        type: "emergency",
+        read: false,
+        patientId: p.id,
+        timestamp: serverTimestamp(),
+      });
+      // alert("Vital Signs Alert Sent!"); // Disabled for auto-trigger to avoid spamming alerts
+    } catch (err) {
+      console.error("Error sending Vitals Alert:", err);
+    }
+  };
   const adherence = patient.adherenceScore || 100;
   const isCritical = patient.riskStatus === "critical" || adherence < 50;
   const isAttention =
@@ -163,8 +249,19 @@ function PatientStatusCard({ patient }) {
       {/* Info Grid */}
       <div className="grid grid-cols-2 gap-2 text-sm">
         <div className="bg-gray-50 p-2 rounded flex items-center gap-2 text-gray-600">
-          <Clock size={14} className="text-blue-500" />
-          <span>Last: 2h ago</span> {/* Placeholder for now */}
+          <Activity
+            size={14}
+            className={
+              isMonitoring ? "text-red-500 animate-pulse" : "text-gray-400"
+            }
+          />
+          <span
+            className={
+              isMonitoring && bpm > 100 ? "text-red-600 font-bold" : ""
+            }
+          >
+            {isMonitoring ? `${bpm} BPM` : "No Live Data"}
+          </span>
         </div>
         <div className="bg-gray-50 p-2 rounded flex items-center gap-2 text-gray-600">
           <Calendar size={14} className="text-purple-500" />
@@ -180,8 +277,44 @@ function PatientStatusCard({ patient }) {
         >
           View Details
         </Link>
-        <button className="btn btn-primary flex-1 text-xs">Remind</button>
+        <button
+          onClick={() => handleSOS(patient)}
+          className="btn bg-red-600 hover:bg-red-700 text-white font-bold uppercase tracking-wider border-none flex-1 text-xs shadow-sm hover:shadow-md transition-all"
+        >
+          Simulate SOS
+        </button>
       </div>
+
+      {/* Actions Row 2 */}
+      <div className="pt-2 flex gap-2 border-t mt-2">
+        <button
+          onClick={() => handleCriticalVitals(patient)}
+          className="btn btn-outline btn-error btn-xs flex-1"
+        >
+          Simulate Critical Vitals
+        </button>
+      </div>
+
+      {/* Auto-Call Modal */}
+      {showCallModal && (
+        <div className="absolute inset-0 bg-red-600/90 z-50 flex flex-col items-center justify-center text-white p-6 text-center animate-in fade-in zoom-in">
+          <div className="bg-white/20 p-4 rounded-full mb-4 animate-pulse">
+            <Phone size={32} />
+          </div>
+          <h3 className="text-xl font-bold mb-2">SOS TRIGGERED</h3>
+          <p className="text-sm mb-6">
+            Contacting Emergency Services & Guardian...
+          </p>
+          <div className="flex gap-2 w-full">
+            <button
+              onClick={() => setShowCallModal(false)}
+              className="btn btn-sm bg-white text-red-600 border-none hover:bg-gray-100 flex-1"
+            >
+              Cancel Call (5s)
+            </button>
+          </div>
+        </div>
+      )}
     </Motion.div>
   );
 }

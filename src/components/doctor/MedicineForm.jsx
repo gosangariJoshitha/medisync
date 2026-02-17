@@ -77,20 +77,97 @@ export default function MedicineForm({
     });
   };
 
+  const getFrequencyCount = (freq) => {
+    const map = { "Once a day": 1, "Twice a day": 2, "Thrice a day": 3 };
+    return map[freq] || 1;
+  };
+
   const togglePeriod = (p) => {
+    const maxCount = getFrequencyCount(newMed.frequency);
+
     if (selectedPeriods.includes(p)) {
+      // Deselect
       setSelectedPeriods(selectedPeriods.filter((item) => item !== p));
       const newTimes = { ...specificTimes };
       delete newTimes[p];
       setSpecificTimes(newTimes);
     } else {
-      setSelectedPeriods([...selectedPeriods, p]);
+      // Select
+      if (selectedPeriods.length < maxCount) {
+        setSelectedPeriods([...selectedPeriods, p]);
+      } else if (maxCount === 1) {
+        // Auto-swap for single frequency
+        const oldPeriod = selectedPeriods[0];
+        const newTimes = { ...specificTimes };
+        delete newTimes[oldPeriod];
+        setSpecificTimes(newTimes);
+        setSelectedPeriods([p]);
+      } else {
+        alert(
+          `You can only select ${maxCount} time periods for this frequency.`,
+        );
+      }
     }
   };
 
   const handleTimeChange = (period, time) => {
-    setSpecificTimes({ ...specificTimes, [period]: time });
+    if (!time) {
+      setSpecificTimes({ ...specificTimes, [period]: "" });
+      return;
+    }
+    const { min, max } = periodTimes[period];
+
+    // Check if range crosses midnight (e.g., Night: 22:00 -> 05:59)
+    const isOvernight = min > max;
+    let isValid = false;
+
+    if (isOvernight) {
+      // Valid if time >= min OR time <= max
+      isValid = time >= min || time <= max;
+    } else {
+      // Normal range: min <= time <= max
+      isValid = time >= min && time <= max;
+    }
+
+    if (isValid) {
+      setSpecificTimes({ ...specificTimes, [period]: time });
+    } else {
+      // Input is outside range; do not update state
+      const msg = isOvernight
+        ? `Please select a time between ${min} and ${max} (overnight) for ${period}.`
+        : `Please select a time between ${min} and ${max} for ${period}.`;
+      alert(msg);
+    }
   };
+
+  // Mock Drug Interaction Database
+  const DRUG_INTERACTIONS = [
+    {
+      pair: ["Aspirin", "Warfarin"],
+      severity: "High",
+      description: "Increased risk of bleeding.",
+    },
+    {
+      pair: ["Lisinopril", "Potassium"],
+      severity: "Moderate",
+      description: "Risk of high potassium levels (Hyperkalemia).",
+    },
+    {
+      pair: ["Ibuprofen", "Naproxen"],
+      severity: "Moderate",
+      description: "Increased risk of stomach ulcers and side effects.",
+    },
+    {
+      pair: ["Metformin", "Contrast Dye"],
+      severity: "High",
+      description: "Risk of lactic acidosis. Stop Metformin before procedure.",
+    },
+    {
+      pair: ["Simvastatin", "Grapefruit"],
+      severity: "Moderate",
+      description: "Increases statin levels, risk of muscle toxicity.",
+    },
+  ];
 
   const addMedicine = () => {
     const freqMap = { "Once a day": 1, "Twice a day": 2, "Thrice a day": 3 };
@@ -98,6 +175,36 @@ export default function MedicineForm({
 
     if (!newMed.name) return alert("Medicine Name is required");
     if (!newMed.dosage) return alert("Dosage is required");
+
+    // --- AI Drug Interaction Checker ---
+    const newMedName = newMed.name.trim().toLowerCase();
+    const conflictingMed = medicines.find((existing) => {
+      const existingName = existing.name.trim().toLowerCase();
+      // Check if this pair exists in our DB
+      return DRUG_INTERACTIONS.some((interaction) => {
+        const pairLower = interaction.pair.map((n) => n.toLowerCase());
+        return (
+          pairLower.includes(newMedName) && pairLower.includes(existingName)
+        );
+      });
+    });
+
+    if (conflictingMed) {
+      const interactionDetails = DRUG_INTERACTIONS.find((i) => {
+        const pairLower = i.pair.map((n) => n.toLowerCase());
+        return (
+          pairLower.includes(newMedName) &&
+          pairLower.includes(conflictingMed.name.trim().toLowerCase())
+        );
+      });
+
+      const proceed = window.confirm(
+        `⚠️ AI INTERACTION ALERT ⚠️\n\nPotential conflict detected between:\n- ${newMed.name}\n- ${conflictingMed.name}\n\nSeverity: ${interactionDetails?.severity}\nRisk: ${interactionDetails?.description}\n\nDo you want to proceed anyway?`,
+      );
+
+      if (!proceed) return; // Stop if doctor cancels
+    }
+    // -----------------------------------
     if (selectedPeriods.length !== requiredCount) {
       return alert(`Please select exactly ${requiredCount} time period(s).`);
     }

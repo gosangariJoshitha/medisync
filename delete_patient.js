@@ -1,14 +1,17 @@
+/* eslint-env node */
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, deleteDoc } from "firebase/firestore";
 
+import "dotenv/config";
+
 const firebaseConfig = {
-  apiKey: "AIzaSyAdwf2SUbr0mZBkAHX0DrJSNxjEgd7_r_8",
-  authDomain: "medisync-19.firebaseapp.com",
-  projectId: "medisync-19",
-  storageBucket: "medisync-19.firebasestorage.app",
-  messagingSenderId: "831005314747",
-  appId: "1:831005314747:web:e63731bbc08a15c12b239e",
-  measurementId: "G-YBM313W61F",
+  apiKey: process.env.VITE_FIREBASE_API_KEY,
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.VITE_FIREBASE_APP_ID,
+  measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 // Initialize Firebase

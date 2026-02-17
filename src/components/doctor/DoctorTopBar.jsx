@@ -113,18 +113,64 @@ export default function TopBar() {
     }
   }, [showScanner, navigate]);
 
+  // Search State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [allPatients, setAllPatients] = useState([]);
+  const [filteredPatients, setFilteredPatients] = useState([]);
+  const [showResults, setShowResults] = useState(false);
+
+  // Fetch Patients for Search
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const q = query(
+      collection(db, "patients"),
+      where("doctorUid", "==", currentUser.uid),
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const patients = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setAllPatients(patients);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  // Handle Search Input
+  const handleSearch = (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+
+    if (query.trim() === "") {
+      setFilteredPatients([]);
+      setShowResults(false);
+    } else {
+      const lowerQ = query.toLowerCase();
+      const filtered = allPatients.filter(
+        (p) =>
+          p.fullName?.toLowerCase().includes(lowerQ) ||
+          p.patientId?.toLowerCase().includes(lowerQ),
+      );
+      setFilteredPatients(filtered);
+      setShowResults(true);
+    }
+  };
+
   return (
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 sticky top-0 z-50">
       {/* Left: Welcome & Search */}
-      <div className="flex items-center gap-4 min-w-0">
-        <div className="hidden lg:flex items-center gap-2 text-sm whitespace-nowrap">
+      <div className="flex items-center gap-8 flex-1">
+        <div className="hidden lg:flex items-center gap-2 text-sm whitespace-nowrap flex-shrink-0">
           <span className="text-muted">Welcome,</span>
           <span className="font-bold text-primary">
             Dr. {doctorName || "Doctor"}
           </span>
         </div>
 
-        <div className="relative w-72 group">
+        <div className="relative w-full max-w-md group">
           <Search
             size={16}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200"
@@ -132,24 +178,65 @@ export default function TopBar() {
           <input
             type="text"
             placeholder="Search patients..."
+            value={searchQuery}
+            onChange={handleSearch}
+            onFocus={() => searchQuery && setShowResults(true)}
+            onBlur={() => setTimeout(() => setShowResults(false), 200)} // Delay to allow click
             className="input w-full pl-9 pr-10 bg-white border border-gray-200 shadow-sm hover:border-gray-300 focus:border-blue-400 focus:ring-1 focus:ring-blue-200 focus:bg-white focus:shadow-md rounded-lg text-sm transition-all duration-200"
           />
+          {showResults && (
+            <div className="absolute top-full left-0 w-full mt-2 bg-white border border-gray-100 shadow-xl rounded-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-1">
+              {filteredPatients.length > 0 ? (
+                <ul>
+                  {filteredPatients.slice(0, 5).map((patient) => (
+                    <li key={patient.id}>
+                      <button
+                        onClick={() => {
+                          navigate(`/dashboard/doctor/patient/${patient.id}`);
+                          setSearchQuery("");
+                          setShowResults(false);
+                        }}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors border-b border-gray-50 last:border-0"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
+                          {patient.fullName?.charAt(0) || "P"}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">
+                            {patient.fullName}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {patient.patientId}
+                          </p>
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                  {filteredPatients.length > 5 && (
+                    <li className="px-4 py-2 text-xs text-center text-gray-400 bg-gray-50">
+                      +{filteredPatients.length - 5} more results
+                    </li>
+                  )}
+                </ul>
+              ) : (
+                <div className="p-4 text-center text-gray-500 text-sm">
+                  No patients found.
+                </div>
+              )}
+            </div>
+          )}
           <button
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-gray-500 hover:text-blue-600 hover:shadow-sm hover:shadow-blue-200 transition-all duration-300 ease-out transform hover:scale-110 active:scale-95 group-focus-within:text-blue-500 border-0 outline-none bg-transparent"
+            className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-circle btn-sm text-gray-400 hover:text-blue-600 hover:bg-blue-50 border-none outline-none focus:outline-none focus:ring-0 shadow-none bg-transparent"
             title="Voice Search"
             onClick={() => alert("Listening... (Voice Search Simulation)")}
           >
-            <Mic 
-              size={16} 
-              strokeWidth={2.5}
-              className="group-hover:animate-pulse transition-all duration-300"
-            />
+            <Mic size={18} strokeWidth={2.5} />
           </button>
         </div>
       </div>
 
       {/* Right Actions - Icons Reverted */}
-      <div className="flex items-center gap-4 flex-shrink-0">
+      <div className="flex items-center gap-2 flex-shrink-0">
         {/* Notifications */}
         <div className="relative">
           <button
@@ -157,23 +244,28 @@ export default function TopBar() {
               setShowNotifications(!showNotifications);
               setShowProfileMenu(false);
             }}
-            className="p-2 relative text-gray-500 hover:text-blue-600 hover:shadow-sm hover:shadow-blue-200 rounded-lg transition-all duration-300 ease-out transform hover:scale-110 active:scale-95 border-0 outline-none bg-transparent group"
+            className={`btn btn-ghost btn-circle btn-sm text-gray-500 hover:text-blue-600 hover:bg-blue-50 border-none outline-none focus:outline-none focus:ring-0 shadow-none bg-transparent ${showNotifications ? "bg-blue-50 text-blue-600" : ""}`}
             title="Notifications"
           >
-            <Bell size={20} className="group-hover:animate-bounce transition-all duration-300" />
+            <Bell size={20} />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full border-2 border-white flex items-center justify-center flex-shrink-0">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
+              <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
             )}
           </button>
 
+          {/* ... (Existing Notification Logic) ... */}
+
           {showNotifications && (
             <div className="absolute right-0 mt-2 w-96 bg-white border border-gray-200 shadow-2xl rounded-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+              {/* ... Notification Content ... */}
               <div className="p-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50 flex justify-between items-center">
                 <div>
-                  <h3 className="font-bold text-base text-gray-900">Notifications</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">{unreadCount} unread</p>
+                  <h3 className="font-bold text-base text-gray-900">
+                    Notifications
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {unreadCount} unread
+                  </p>
                 </div>
                 <span className="text-xs text-primary cursor-pointer hover:underline font-semibold hover:text-primary/80 transition-colors">
                   Mark all read
@@ -185,23 +277,31 @@ export default function TopBar() {
                     <div
                       key={notif.id}
                       className={`p-4 border-b transition-all cursor-pointer ${
-                        notif.read 
-                          ? "bg-white opacity-70 hover:bg-gray-50" 
+                        notif.read
+                          ? "bg-white opacity-70 hover:bg-gray-50"
                           : "bg-blue-50 hover:bg-blue-100 border-blue-100"
                       }`}
                     >
                       <div className="flex items-start gap-3">
-                        <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${notif.read ? "bg-gray-300" : "bg-blue-500"}`}></div>
+                        <div
+                          className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${notif.read ? "bg-gray-300" : "bg-blue-500"}`}
+                        ></div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-900">
                             {notif.title || "New Notification"}
                           </p>
-                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{notif.message}</p>
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                            {notif.message}
+                          </p>
                           <p className="text-xs text-gray-400 mt-2 font-medium">
-                            {notif.timestamp?.toDate ? notif.timestamp.toDate().toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            }) : "Just now"}
+                            {notif.timestamp?.toDate
+                              ? notif.timestamp
+                                  .toDate()
+                                  .toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                              : "Just now"}
                           </p>
                         </div>
                       </div>
@@ -210,7 +310,9 @@ export default function TopBar() {
                 ) : (
                   <div className="p-8 text-center">
                     <Bell size={32} className="text-gray-300 mx-auto mb-2" />
-                    <p className="text-sm text-gray-500">No notifications yet</p>
+                    <p className="text-sm text-gray-500">
+                      No notifications yet
+                    </p>
                   </div>
                 )}
               </div>
@@ -283,23 +385,36 @@ export default function TopBar() {
         </button>
       </div>
 
-      {/* Global Emergency Banner */}
+      {/* Global Emergency Toast (Moved from Top) */}
       {notifications.some((n) => n.type === "emergency" && !n.read) && (
-        <div className="absolute top-16 left-0 w-full bg-red-600 text-white p-3 flex justify-between items-center z-40 animate-pulse px-6 shadow-md">
-          <div className="flex items-center gap-3 font-bold">
-            <div className="bg-white text-red-600 rounded-full p-1">
-              <Bell size={16} />
+        <div className="fixed bottom-6 right-6 w-full max-w-md bg-white border-l-4 border-red-600 shadow-2xl rounded-lg p-4 z-[100] animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <div className="flex items-start gap-3">
+            <div className="bg-red-100 text-red-600 rounded-full p-2 flex-shrink-0">
+              <AlertTriangle size={20} />
             </div>
-            <span>
-              EMERGENCY ALERT: One or more patients reported distress!
-            </span>
+            <div className="flex-1">
+              <h4 className="font-bold text-gray-900 text-sm">
+                Emergency Alert
+              </h4>
+              <p className="text-xs text-gray-600 mt-1">
+                One or more patients triggered an SOS!
+              </p>
+              <div className="mt-3 flex gap-2">
+                <Link
+                  to="/dashboard/doctor/alerts"
+                  className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700 transition-colors"
+                >
+                  View Alert
+                </Link>
+                <button
+                  onClick={() => setShowNotifications(true)}
+                  className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-bold rounded hover:bg-gray-200 transition-colors"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
           </div>
-          <Link
-            to="/dashboard/doctor/alerts"
-            className="bg-white text-red-600 px-3 py-1 rounded text-sm font-bold hover:bg-red-50"
-          >
-            View Alerts
-          </Link>
         </div>
       )}
 

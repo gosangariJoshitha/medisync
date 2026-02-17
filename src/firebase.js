@@ -3,13 +3,13 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 export const firebaseConfig = {
-  apiKey: "AIzaSyAdwf2SUbr0mZBkAHX0DrJSNxjEgd7_r_8",
-  authDomain: "medisync-19.firebaseapp.com",
-  projectId: "medisync-19",
-  storageBucket: "medisync-19.firebasestorage.app",
-  messagingSenderId: "831005314747",
-  appId: "1:831005314747:web:e63731bbc08a15c12b239e",
-  measurementId: "G-YBM313W61F",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 const app = initializeApp(firebaseConfig);
