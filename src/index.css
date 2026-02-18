@@ -1,15 +1,15 @@
 :root {
-  --primary: #2563EB;
-  --primary-dark: #1E40AF;
-  --primary-light: #60A5FA;
-  --secondary: #10B981;
-  --accent: #F59E0B;
-  --danger: #EF4444;
-  --background: #F8FAFC;
-  --surface: #FFFFFF;
-  --text-main: #1E293B;
-  --text-muted: #64748B;
-  --border: #E2E8F0;
+  --primary: #2563eb;
+  --primary-dark: #1e40af;
+  --primary-light: #60a5fa;
+  --secondary: #10b981;
+  --accent: #f59e0b;
+  --danger: #ef4444;
+  --background: #f8fafc;
+  --surface: #ffffff;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
 
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
@@ -27,7 +27,7 @@
 }
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: "Inter", system-ui, sans-serif;
   background-color: var(--background);
   color: var(--text-main);
   line-height: 1.5;
@@ -390,6 +390,18 @@ body {
   background-color: #ef4444;
 }
 
+.bg-red-600 {
+  background-color: #dc2626;
+}
+
+.bg-red-700 {
+  background-color: #b91c1c;
+}
+
+.hover\:bg-red-700:hover {
+  background-color: #b91c1c;
+}
+
 .bg-green-50 {
   background-color: #f0fdf4;
 }
@@ -651,7 +663,7 @@ body {
 
 @keyframes pulse {
   50% {
-    opacity: .5;
+    opacity: 0.5;
   }
 }
 

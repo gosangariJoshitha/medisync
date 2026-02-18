@@ -4,6 +4,7 @@ import PatientTopBar from "./PatientTopBar";
 import RSsAlarm from "./RSsAlarm";
 
 export default function PatientLayout() {
+  console.log("[DEBUG] Rendering PatientLayout");
   return (
     <div className="flex h-screen bg-gray-50">
       <PatientSidebar />

@@ -3,6 +3,7 @@ import DoctorSidebar from "./DoctorSidebar";
 import DoctorTopBar from "./DoctorTopBar";
 
 export default function DoctorLayout() {
+  console.log("[DEBUG] Rendering DoctorLayout");
   return (
     <div className="flex h-screen bg-gray-50">
       <DoctorSidebar />

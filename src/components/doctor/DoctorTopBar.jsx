@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, writeBatch } from "firebase/firestore";
 import { db } from "../../firebase";
 import {
   collection,
@@ -159,6 +159,32 @@ export default function TopBar() {
     }
   };
 
+  // Mark all notifications as read
+  const handleMarkAllRead = async () => {
+    if (!currentUser || unreadCount === 0) return;
+
+    try {
+      const batch = writeBatch(db);
+      const unreadNotifs = notifications.filter((n) => !n.read);
+
+      unreadNotifs.forEach((notif) => {
+        const notifRef = doc(
+          db,
+          "users",
+          currentUser.uid,
+          "notifications",
+          notif.id,
+        );
+        batch.update(notifRef, { read: true });
+      });
+
+      await batch.commit();
+      console.log("All notifications marked as read");
+    } catch (error) {
+      console.error("Error marking all as read:", error);
+    }
+  };
+
   return (
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 sticky top-0 z-50">
       {/* Left: Welcome & Search */}
@@ -267,9 +293,38 @@ export default function TopBar() {
                     {unreadCount} unread
                   </p>
                 </div>
-                <span className="text-xs text-primary cursor-pointer hover:underline font-semibold hover:text-primary/80 transition-colors">
-                  Mark all read
-                </span>
+                <div className="flex gap-2">
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={handleMarkAllRead}
+                      className="text-[9px] font-bold text-white bg-blue-600 hover:bg-blue-700 px-1.5 py-0.5 rounded transition-colors shadow-sm"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                  {notifications.length > 0 && (
+                    <button
+                      onClick={async () => {
+                        const batch = writeBatch(db);
+                        notifications.forEach((n) => {
+                          batch.delete(
+                            doc(
+                              db,
+                              "users",
+                              currentUser.uid,
+                              "notifications",
+                              n.id,
+                            ),
+                          );
+                        });
+                        await batch.commit();
+                      }}
+                      className="text-[9px] font-bold text-gray-600 hover:text-red-600 bg-gray-100 hover:bg-red-50 px-1.5 py-0.5 rounded transition-colors"
+                    >
+                      Clear All
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="max-h-80 overflow-y-auto">
                 {notifications.length > 0 ? (
@@ -384,39 +439,6 @@ export default function TopBar() {
           <span>Scan QR</span>
         </button>
       </div>
-
-      {/* Global Emergency Toast (Moved from Top) */}
-      {notifications.some((n) => n.type === "emergency" && !n.read) && (
-        <div className="fixed bottom-6 right-6 w-full max-w-md bg-white border-l-4 border-red-600 shadow-2xl rounded-lg p-4 z-[100] animate-in slide-in-from-bottom-5 fade-in duration-300">
-          <div className="flex items-start gap-3">
-            <div className="bg-red-100 text-red-600 rounded-full p-2 flex-shrink-0">
-              <AlertTriangle size={20} />
-            </div>
-            <div className="flex-1">
-              <h4 className="font-bold text-gray-900 text-sm">
-                Emergency Alert
-              </h4>
-              <p className="text-xs text-gray-600 mt-1">
-                One or more patients triggered an SOS!
-              </p>
-              <div className="mt-3 flex gap-2">
-                <Link
-                  to="/dashboard/doctor/alerts"
-                  className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700 transition-colors"
-                >
-                  View Alert
-                </Link>
-                <button
-                  onClick={() => setShowNotifications(true)}
-                  className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-bold rounded hover:bg-gray-200 transition-colors"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* QR Scanner Modal */}
       {showScanner && (

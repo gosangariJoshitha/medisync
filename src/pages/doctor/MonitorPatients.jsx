@@ -279,7 +279,7 @@ function PatientStatusCard({ patient, currentUser, isMonitoring }) {
         </Link>
         <button
           onClick={() => handleSOS(patient)}
-          className="btn bg-red-600 hover:bg-red-700 text-white font-bold uppercase tracking-wider border-none flex-1 text-xs shadow-sm hover:shadow-md transition-all"
+          className="btn bg-red-600 hover:bg-red-700 text-white font-bold uppercase tracking-wider border-none flex-1 text-xs shadow-[0_0_15px_rgba(239,68,68,0.6)] hover:shadow-[0_0_20px_rgba(239,68,68,0.8)] transition-all ring-2 ring-red-400 ring-offset-2 animate-pulse"
         >
           Simulate SOS
         </button>

@@ -28,6 +28,14 @@ export function AuthProvider({ children }) {
   const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    console.log("[DEBUG] AuthContext State:", {
+      currentUser,
+      userRole,
+      loading,
+    });
+  }, [currentUser, userRole, loading]);
+
   async function register(email, password, role, additionalData) {
     const userCredential = await createUserWithEmailAndPassword(
       auth,
