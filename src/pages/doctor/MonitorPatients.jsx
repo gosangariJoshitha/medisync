@@ -112,33 +112,21 @@ export default function MonitorPatients() {
 
 function PatientStatusCard({ patient, currentUser, isMonitoring }) {
   const [showCallModal, setShowCallModal] = useState(false);
-  const [bpm, setBpm] = useState(70 + Math.floor(Math.random() * 20));
-  const [lastAlert, setLastAlert] = useState(0);
+  // Use real-time data from Firestore
+  const bpm = patient.vitals?.heartRate || "--";
+  const lastAlert = useRef(0);
 
   useEffect(() => {
-    let interval;
-    if (isMonitoring) {
-      interval = setInterval(() => {
-        setBpm((prev) => {
-          const change = Math.floor(Math.random() * 10) - 4; // -4 to +5
-          let newBpm = prev + change;
-
-          // Random spike chance (5%)
-          if (Math.random() < 0.05) newBpm += 40;
-
-          return newBpm > 180 ? 180 : newBpm < 40 ? 40 : newBpm;
-        });
-      }, 2000);
-    }
-    return () => clearInterval(interval);
-  }, [isMonitoring]);
-
-  useEffect(() => {
-    if (bpm > 140 && Date.now() - lastAlert > 30000) {
+    if (
+      isMonitoring &&
+      typeof bpm === "number" &&
+      bpm > 140 &&
+      Date.now() - lastAlert.current > 30000
+    ) {
       handleCriticalVitals(patient, bpm);
-      setLastAlert(Date.now());
+      lastAlert.current = Date.now();
     }
-  }, [bpm, isMonitoring]);
+  }, [bpm, isMonitoring, patient]);
 
   const handleSOS = async (p) => {
     setShowCallModal(true);
@@ -260,7 +248,11 @@ function PatientStatusCard({ patient, currentUser, isMonitoring }) {
               isMonitoring && bpm > 100 ? "text-red-600 font-bold" : ""
             }
           >
-            {isMonitoring ? `${bpm} BPM` : "No Live Data"}
+            {isMonitoring
+              ? typeof bpm === "number"
+                ? `${bpm} BPM`
+                : bpm
+              : "No Live Data"}
           </span>
         </div>
         <div className="bg-gray-50 p-2 rounded flex items-center gap-2 text-gray-600">

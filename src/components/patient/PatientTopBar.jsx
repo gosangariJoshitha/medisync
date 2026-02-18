@@ -20,6 +20,8 @@ export default function PatientTopBar() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [patientData, setPatientData] = useState(null);
+  const [showEmergency, setShowEmergency] = useState(false);
 
   useEffect(() => {
     async function fetchPatientData() {

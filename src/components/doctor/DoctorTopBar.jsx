@@ -189,12 +189,12 @@ export default function TopBar() {
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 sticky top-0 z-50">
       {/* Left: Welcome & Search */}
       <div className="flex items-center gap-8 flex-1">
-        <div className="hidden lg:flex items-center gap-2 text-sm whitespace-nowrap flex-shrink-0">
-          <span className="text-muted">Welcome,</span>
-          <span className="font-bold text-primary">
+        <p className="hidden lg:block text-sm text-gray-500 whitespace-nowrap flex-shrink-0">
+          Welcome,{" "}
+          <span className="font-bold text-blue-600">
             Dr. {doctorName || "Doctor"}
           </span>
-        </div>
+        </p>
 
         <div className="relative w-full max-w-md group">
           <Search
@@ -293,11 +293,11 @@ export default function TopBar() {
                     {unreadCount} unread
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   {unreadCount > 0 && (
                     <button
                       onClick={handleMarkAllRead}
-                      className="text-[9px] font-bold text-white bg-blue-600 hover:bg-blue-700 px-1.5 py-0.5 rounded transition-colors shadow-sm"
+                      className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors pt-1"
                     >
                       Mark all read
                     </button>
@@ -319,7 +319,7 @@ export default function TopBar() {
                         });
                         await batch.commit();
                       }}
-                      className="text-[9px] font-bold text-gray-600 hover:text-red-600 bg-gray-100 hover:bg-red-50 px-1.5 py-0.5 rounded transition-colors"
+                      className="text-[10px] font-semibold text-gray-500 hover:text-red-600 hover:underline transition-colors pt-1"
                     >
                       Clear All
                     </button>
