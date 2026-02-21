@@ -7,6 +7,8 @@ export default function MedicineForm({
   setMedicines,
   onClose,
   onSave,
+  editMode = false,
+  initialData = null,
 }) {
   const [showScanner, setShowScanner] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -37,6 +39,21 @@ export default function MedicineForm({
   const [selectedPeriods, setSelectedPeriods] = useState([]);
   const [specificTimes, setSpecificTimes] = useState({});
 
+  useEffect(() => {
+    if (editMode && initialData) {
+      setNewMed(initialData);
+      setSelectedPeriods(initialData.selectedPeriods || []);
+
+      const timesObj = {};
+      if (initialData.selectedPeriods && initialData.times) {
+        initialData.selectedPeriods.forEach((p, idx) => {
+          timesObj[p] = initialData.times[idx];
+        });
+      }
+      setSpecificTimes(timesObj);
+    }
+  }, [editMode, initialData]);
+
   const calculateEndDate = (start, val, unit) => {
     if (unit === "continuous") return "Continuous";
     const date = new Date(start);
@@ -48,15 +65,17 @@ export default function MedicineForm({
 
   // Recalculate end date on mount
   useEffect(() => {
-    setNewMed((prev) => ({
-      ...prev,
-      endDate: calculateEndDate(
-        prev.startDate,
-        prev.durationValue,
-        prev.durationUnit,
-      ),
-    }));
-  }, []);
+    if (!editMode) {
+      setNewMed((prev) => ({
+        ...prev,
+        endDate: calculateEndDate(
+          prev.startDate,
+          prev.durationValue,
+          prev.durationUnit,
+        ),
+      }));
+    }
+  }, [editMode]);
 
   const handleAddKey = (e) => {
     const { name, value } = e.target;

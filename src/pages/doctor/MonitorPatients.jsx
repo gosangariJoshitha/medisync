@@ -1,13 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { db } from "../../firebase";
-import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-  addDoc,
-  serverTimestamp,
-} from "firebase/firestore";
+import { collection, query, where, onSnapshot, addDoc, setDoc, doc, serverTimestamp } from "firebase/firestore";
 import {
   CheckCircle,
   XCircle,
@@ -111,58 +104,99 @@ export default function MonitorPatients() {
 }
 
 function PatientStatusCard({ patient, currentUser, isMonitoring }) {
-  const [showCallModal, setShowCallModal] = useState(false);
   // Use real-time data from Firestore
   const bpm = patient.vitals?.heartRate || "--";
-  const lastAlert = useRef(0);
+  const [todayTaken, setTodayTaken] = useState(0);
+  const [todayTotal, setTodayTotal] = useState(0);
+  const [nextInfo, setNextInfo] = useState(null); // { date: Date, label: string }
+  const scheduledRef = useRef(new Set());
 
   useEffect(() => {
-    if (
-      isMonitoring &&
-      typeof bpm === "number" &&
-      bpm > 140 &&
-      Date.now() - lastAlert.current > 30000
-    ) {
-      handleCriticalVitals(patient, bpm);
-      lastAlert.current = Date.now();
-    }
-  }, [bpm, isMonitoring, patient]);
+    // Subscribe to patient's medicines to compute today's schedule live
+    const medsRef = collection(db, "patients", patient.id, "medicines");
+    const unsubscribe = onSnapshot(medsRef, (snap) => {
+      const meds = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-  const handleSOS = async (p) => {
-    setShowCallModal(true);
-    if (!currentUser) return;
-    try {
-      await addDoc(collection(db, "users", currentUser.uid, "notifications"), {
-        title: "CRITICAL: SOS ALERT",
-        message: `Patient ${p.fullName} has triggered an SOS alert! Immediate attention required.`,
-        type: "emergency",
-        read: false,
-        patientId: p.id,
-        timestamp: serverTimestamp(),
-      });
-      // alert("SOS Alert Sent! Check the top bar."); // Removed alert in favor of modal
-    } catch (err) {
-      console.error("Error sending SOS:", err);
-      alert("Failed to send SOS.");
-    }
-  };
+      const todayStr = new Date().toISOString().split("T")[0];
+      let total = 0;
+      let taken = 0;
+      const upcomingTimes = [];
 
-  const handleCriticalVitals = async (p, currentBpm = 140) => {
-    if (!currentUser) return;
-    try {
-      await addDoc(collection(db, "users", currentUser.uid, "notifications"), {
-        title: "CRITICAL VITALS ALERT",
-        message: `Abnormal Vitals Detected for ${p.fullName} (Heart Rate: ${currentBpm} bpm). Immediate attention required.`,
-        type: "emergency",
-        read: false,
-        patientId: p.id,
-        timestamp: serverTimestamp(),
+      meds.forEach((m) => {
+        // Determine if medicine is active today based on start/end date
+        const start = m.startDate || todayStr;
+        const end = m.endDate === "Continuous" || !m.endDate ? null : m.endDate;
+        const inRange = new Date(start) <= new Date() && (!end || new Date(end) >= new Date());
+        if (!inRange) return;
+
+        // times can be an array of HH:MM strings
+        let times = m.times || [];
+        if (times.length === 0 && m.timeDisplay) {
+          // fallback: try parsing timeDisplay
+          const t = (m.timeDisplay || "").match(/(\d{1,2}:\d{2})/);
+          if (t) times.push(t[1]);
+        }
+
+        // if no explicit times, infer count from frequency
+        if (times.length === 0) {
+          const freqMap = { "Once a day": 1, "Twice a day": 2, "Thrice a day": 3 };
+          const inferred = freqMap[m.frequency] || 1;
+          for (let i = 0; i < inferred; i++) times.push("00:00"); // placeholder times (count only)
+        }
+
+        if (times.length > 0) {
+          total += times.length;
+          // check status/lastAction per med - if status "taken" and lastAction is today, try to count proportionally
+          if (m.status === "taken") {
+            const last = m.lastAction ? m.lastAction.split("T")[0] : null;
+            if (last === todayStr) {
+              // if frequency >1 and we only have single status, count as 1 taken (conservative)
+              taken += 1;
+            }
+          }
+
+          // collect upcoming times (today) - ignore placeholder "00:00" entries for next-time calculation
+          times.forEach((t) => {
+            if (!t || t === "00:00") return;
+            const [hh, mm] = t.split(":");
+            const dt = new Date();
+            dt.setHours(parseInt(hh || "0"), parseInt(mm || "0"), 0, 0);
+            upcomingTimes.push(dt);
+          });
+        }
       });
-      // alert("Vital Signs Alert Sent!"); // Disabled for auto-trigger to avoid spamming alerts
-    } catch (err) {
-      console.error("Error sending Vitals Alert:", err);
-    }
-  };
+
+      setTodayTotal(total);
+      setTodayTaken(taken);
+
+      // find next upcoming time
+      const now = new Date();
+      const next = upcomingTimes.filter((d) => d > now).sort((a, b) => a - b)[0];
+      if (next) {
+        setNextInfo({ date: next, label: next.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
+      } else {
+        setNextInfo(null);
+      }
+
+      // Persist a daily snapshot for simple learning/analytics
+      (async () => {
+        try {
+          const adherence = total > 0 ? Math.round((taken / total) * 100) : 100;
+          await setDoc(doc(db, "patients", patient.id, "daily_stats", todayStr), {
+            date: todayStr,
+            taken,
+            total,
+            adherence,
+            updatedAt: serverTimestamp(),
+          });
+        } catch (err) {
+          console.error("Failed to write daily snapshot:", err);
+        }
+      })();
+    });
+
+    return () => unsubscribe();
+  }, [patient.id]);
   const adherence = patient.adherenceScore || 100;
   const isCritical = patient.riskStatus === "critical" || adherence < 50;
   const isAttention =
@@ -181,9 +215,9 @@ function PatientStatusCard({ patient, currentUser, isMonitoring }) {
       ? "border-yellow-200"
       : "border-green-200";
 
-  // Progress
-  const taken = patient.dailyProgress?.taken || 0;
-  const total = patient.dailyProgress?.total || 0;
+  // Progress (use live medicines subscription values if available)
+  const taken = typeof todayTaken !== "undefined" ? todayTaken : patient.dailyProgress?.taken || 0;
+  const total = typeof todayTotal !== "undefined" ? todayTotal : patient.dailyProgress?.total || 0;
   const percentage = total > 0 ? (taken / total) * 100 : 0;
 
   return (
@@ -257,7 +291,7 @@ function PatientStatusCard({ patient, currentUser, isMonitoring }) {
         </div>
         <div className="bg-gray-50 p-2 rounded flex items-center gap-2 text-gray-600">
           <Calendar size={14} className="text-purple-500" />
-          <span>Next: 09:00 PM</span> {/* Placeholder */}
+          <span>{nextInfo ? `Next: ${nextInfo.label}` : "No upcoming"}</span>
         </div>
       </div>
 
@@ -269,44 +303,60 @@ function PatientStatusCard({ patient, currentUser, isMonitoring }) {
         >
           View Details
         </Link>
-        <button
-          onClick={() => handleSOS(patient)}
-          className="btn bg-red-600 hover:bg-red-700 text-white font-bold uppercase tracking-wider border-none flex-1 text-xs shadow-[0_0_15px_rgba(239,68,68,0.6)] hover:shadow-[0_0_20px_rgba(239,68,68,0.8)] transition-all ring-2 ring-red-400 ring-offset-2 animate-pulse"
+        <Link
+          to={`/dashboard/doctor/edit-patient/${patient.id}`}
+          className="btn btn-ghost flex-1 text-xs"
         >
-          Simulate SOS
-        </button>
+          Edit
+        </Link>
       </div>
-
-      {/* Actions Row 2 */}
-      <div className="pt-2 flex gap-2 border-t mt-2">
-        <button
-          onClick={() => handleCriticalVitals(patient)}
-          className="btn btn-outline btn-error btn-xs flex-1"
-        >
-          Simulate Critical Vitals
-        </button>
-      </div>
-
-      {/* Auto-Call Modal */}
-      {showCallModal && (
-        <div className="absolute inset-0 bg-red-600/90 z-50 flex flex-col items-center justify-center text-white p-6 text-center animate-in fade-in zoom-in">
-          <div className="bg-white/20 p-4 rounded-full mb-4 animate-pulse">
-            <Phone size={32} />
-          </div>
-          <h3 className="text-xl font-bold mb-2">SOS TRIGGERED</h3>
-          <p className="text-sm mb-6">
-            Contacting Emergency Services & Guardian...
-          </p>
-          <div className="flex gap-2 w-full">
-            <button
-              onClick={() => setShowCallModal(false)}
-              className="btn btn-sm bg-white text-red-600 border-none hover:bg-gray-100 flex-1"
-            >
-              Cancel Call (5s)
-            </button>
-          </div>
-        </div>
+      {/* Schedule in-app notification for next dose when monitoring is active */}
+      {isMonitoring && nextInfo && (
+        <ScheduleNotification
+          nextInfo={nextInfo}
+          patient={patient}
+          currentUser={currentUser}
+          scheduledRef={scheduledRef}
+        />
       )}
     </Motion.div>
   );
+}
+
+function ScheduleNotification({ nextInfo, patient, currentUser, scheduledRef }) {
+  useEffect(() => {
+    if (!nextInfo || !currentUser) return;
+
+    const now = new Date();
+    const ms = nextInfo.date - now;
+
+    // Only schedule if within next 24 hours and in the future
+    if (ms <= 0 || ms > 24 * 60 * 60 * 1000) return;
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        await addDoc(collection(db, "users", currentUser.uid, "notifications"), {
+          title: `Medicine due: ${patient.fullName}`,
+          message: `A scheduled dose is due for ${patient.fullName} at ${nextInfo.label}`,
+          type: "reminder",
+          read: false,
+          patientId: patient.id,
+          timestamp: serverTimestamp(),
+        });
+      } catch (err) {
+        console.error("Failed to write scheduled notification:", err);
+      } finally {
+        scheduledRef.current.delete(timeoutId);
+      }
+    }, ms);
+
+    scheduledRef.current.add(timeoutId);
+
+    return () => {
+      clearTimeout(timeoutId);
+      scheduledRef.current.delete(timeoutId);
+    };
+  }, [nextInfo, patient, currentUser, scheduledRef]);
+
+  return null;
 }

@@ -1,5 +1,15 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, Pill, RotateCcw, X } from "lucide-react";
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Pill,
+  RotateCcw,
+  X,
+  Clock,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
 import MedicineForm from "../../components/doctor/MedicineForm";
 import { useAuth } from "../../contexts/AuthContext";
 import { db } from "../../firebase";
@@ -10,6 +20,7 @@ import {
   doc,
   getDoc,
   onSnapshot,
+  updateDoc,
 } from "firebase/firestore";
 
 export default function MyMedicines() {
@@ -54,6 +65,35 @@ export default function MyMedicines() {
     const collectionName = currentUser.sourceCollection || "users";
     await deleteDoc(doc(db, collectionName, currentUser.uid, "medicines", id));
     setMedicines(medicines.filter((m) => m.id !== id));
+  };
+
+  const handleAction = async (id, action) => {
+    try {
+      const collectionName = currentUser.sourceCollection || "users";
+      const medRef = doc(db, collectionName, currentUser.uid, "medicines", id);
+      if (action === "snooze") {
+        const val = window.prompt("Snooze minutes (e.g. 30)", "30");
+        const mins = parseInt(val, 10);
+        if (isNaN(mins) || mins <= 0) return;
+        const snoozedUntil = new Date(
+          Date.now() + mins * 60 * 1000,
+        ).toISOString();
+        await updateDoc(medRef, { snoozedUntil });
+        alert(`Snoozed for ${mins} minutes`);
+        return;
+      }
+
+      const todayStr = new Date().toISOString();
+      await updateDoc(medRef, {
+        lastAction: todayStr,
+        status: action,
+        snoozedUntil: null,
+      });
+      alert(`Marked ${action}`);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to update medicine");
+    }
   };
 
   return (
@@ -119,39 +159,83 @@ export default function MyMedicines() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {medicines.map((med) => (
           <div key={med.id} className="card relative group">
-            <div className="flex items-start justify-between">
-              <div className="flex gap-4">
-                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-primary">
-                  <Pill size={24} />
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4">
+              <div className="flex gap-4 items-center">
+                <div className="w-14 h-14 rounded-full bg-blue-50 border-2 border-blue-100 flex items-center justify-center text-blue-600 shadow-sm">
+                  <Pill size={28} />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg">{med.name}</h3>
-                  <p className="text-sm text-muted">
-                    {med.dosage} • {med.frequency}
+                  <h3 className="font-bold text-xl text-gray-800">
+                    {med.name}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-full">
+                      {med.dosage}
+                    </span>
+                    <span className="text-sm text-gray-500">
+                      {med.frequency}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium text-gray-600 mt-2 flex items-center gap-1">
+                    <Clock size={14} /> Timing:{" "}
+                    {med.timing ||
+                      (med.times && med.times.join(", ")) ||
+                      "Not set"}
                   </p>
-                  <p className="text-sm text-muted mt-1">
-                    Timing: {med.timing}
-                  </p>
-                  <div className="mt-2 inline-flex items-center gap-1 text-xs px-2 py-1 bg-gray-100 rounded">
+                  <div className="mt-2 text-xs font-semibold text-orange-600 bg-orange-50 inline-flex items-center gap-1 px-2 py-1 rounded border border-orange-100">
                     <RotateCcw size={12} /> Refill in {med.alertQuantity || 5}{" "}
                     days
                   </div>
                 </div>
               </div>
 
-              {canEdit && (
-                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button className="p-2 hover:bg-gray-100 rounded text-muted">
-                    <Edit2 size={16} />
+              <div className="flex flex-col items-end gap-3">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleAction(med.id, "taken")}
+                    className="btn btn-sm btn-outline border-green-200 text-green-700 hover:bg-green-50 shadow-sm flex items-center gap-1"
+                  >
+                    <CheckCircle size={14} /> Take
                   </button>
                   <button
-                    onClick={() => deleteMedicine(med.id)}
-                    className="p-2 hover:bg-red-50 rounded text-red-500"
+                    onClick={() => handleAction(med.id, "skipped")}
+                    className="btn btn-sm btn-outline border-red-200 text-red-700 hover:bg-red-50 shadow-sm flex items-center gap-1"
                   >
-                    <Trash2 size={16} />
+                    <XCircle size={14} /> Skip
+                  </button>
+                  <button
+                    onClick={() => handleAction(med.id, "snooze")}
+                    className="btn btn-sm btn-outline border-blue-200 text-blue-700 hover:bg-blue-50 shadow-sm flex items-center gap-1"
+                  >
+                    <Clock size={14} /> Snooze
                   </button>
                 </div>
-              )}
+
+                <div className="flex items-center gap-3 w-full justify-end border-t border-gray-100 pt-3 mt-1">
+                  {!canEdit && (
+                    <span className="text-xs text-gray-500 italic bg-gray-50 px-2 py-1 rounded">
+                      Managed by doctor
+                    </span>
+                  )}
+                  {canEdit && (
+                    <div className="flex gap-2 text-gray-400">
+                      <button
+                        className="p-1.5 hover:bg-gray-100 hover:text-blue-600 rounded transition-colors"
+                        title="Edit Medicine"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => deleteMedicine(med.id)}
+                        className="p-1.5 hover:bg-red-50 hover:text-red-600 rounded transition-colors"
+                        title="Delete Medicine"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         ))}

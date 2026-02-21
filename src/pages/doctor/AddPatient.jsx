@@ -45,6 +45,7 @@ export default function AddPatient() {
   const { currentUser } = useAuth();
 
   const [isMedicineModalOpen, setIsMedicineModalOpen] = useState(false);
+  const [editingMedicineIndex, setEditingMedicineIndex] = useState(null); // track index for editing
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   // Initial State
@@ -72,27 +73,55 @@ export default function AddPatient() {
       const fetchPatientData = async () => {
         setLoading(true);
         try {
-          // 1. Fetch User Doc
-          const docRef = doc(db, "users", id);
-          const docSnap = await getDoc(docRef);
+          // Try 'patients' collection first (new schema), then fallback to 'users'
+          const patientRef = doc(db, "patients", id);
+          const patientSnap = await getDoc(patientRef);
 
-          if (docSnap.exists()) {
-            setPatientData({ ...initialPatientData, ...docSnap.data() });
+          let patientDataLoaded = null;
+
+          if (patientSnap.exists()) {
+            patientDataLoaded = {
+              ...initialPatientData,
+              ...patientSnap.data(),
+            };
+            // Medicines from patients/*/medicines
+            const medicinesRef = collection(db, "patients", id, "medicines");
+            const medSnap = await getDocs(medicinesRef);
+            const medList = medSnap.docs.map((d) => ({
+              id: d.id,
+              ...d.data(),
+            }));
+            setMedicines(medList);
+            setInitialMedicineIds(medList.map((m) => m.id));
           } else {
-            alert("Patient not found!");
-            navigate("/dashboard/doctor");
-            return;
+            // Fallback to legacy 'users' collection
+            const legacyRef = doc(db, "users", id);
+            const legacySnap = await getDoc(legacyRef);
+
+            if (legacySnap.exists()) {
+              patientDataLoaded = {
+                ...initialPatientData,
+                ...legacySnap.data(),
+              };
+
+              const medicinesRef = collection(db, "users", id, "medicines");
+              const medSnap = await getDocs(medicinesRef);
+              const medList = medSnap.docs.map((d) => ({
+                id: d.id,
+                ...d.data(),
+              }));
+              setMedicines(medList);
+              setInitialMedicineIds(medList.map((m) => m.id));
+            } else {
+              alert("Patient not found!");
+              navigate("/dashboard/doctor");
+              return;
+            }
           }
 
-          // 2. Fetch Medicines
-          const medicinesRef = collection(db, "users", id, "medicines");
-          const medSnap = await getDocs(medicinesRef);
-          const medList = medSnap.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-          setMedicines(medList);
-          setInitialMedicineIds(medList.map((m) => m.id));
+          if (patientDataLoaded) {
+            setPatientData(patientDataLoaded);
+          }
         } catch (error) {
           console.error("Error fetching patient details:", error);
           alert("Error loading data.");
@@ -352,23 +381,49 @@ export default function AddPatient() {
   }
 
   if (isMedicineModalOpen) {
+    const medToEdit =
+      editingMedicineIndex !== null ? medicines[editingMedicineIndex] : null;
+
     return (
       <div className="fade-in max-w-6xl mx-auto p-6">
         <button
-          onClick={() => setIsMedicineModalOpen(false)}
+          onClick={() => {
+            setIsMedicineModalOpen(false);
+            setEditingMedicineIndex(null);
+          }}
           className="btn btn-outline mb-6 flex items-center gap-2"
         >
           <ArrowLeft size={18} /> Back to Patient Details
         </button>
 
         <h2 className="text-2xl font-bold mb-6">
-          {isEditMode ? "Edit Medicine" : "Add Medicine"}
+          {editingMedicineIndex !== null ? "Edit Medicine" : "Add Medicine"}
         </h2>
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <MedicineForm
             medicines={medicines}
             setMedicines={setMedicines}
-            onClose={() => setIsMedicineModalOpen(false)}
+            editMode={editingMedicineIndex !== null}
+            initialData={medToEdit}
+            onSave={(newMed) => {
+              if (editingMedicineIndex !== null) {
+                // Update existing
+                const updated = [...medicines];
+                updated[editingMedicineIndex] = {
+                  ...newMed,
+                  id: medToEdit.id || Date.now(),
+                }; // keep id if from db
+                setMedicines(updated);
+              } else {
+                setMedicines([...medicines, newMed]);
+              }
+              setIsMedicineModalOpen(false);
+              setEditingMedicineIndex(null);
+            }}
+            onClose={() => {
+              setIsMedicineModalOpen(false);
+              setEditingMedicineIndex(null);
+            }}
           />
         </div>
       </div>
@@ -431,14 +486,25 @@ export default function AddPatient() {
                       </div>
                     </div>
                   </div>
-                  <button
-                    onClick={() =>
-                      setMedicines(medicines.filter((_, i) => i !== index))
-                    }
-                    className="text-red-500 hover:bg-red-50 p-2 rounded-full"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingMedicineIndex(index);
+                        setIsMedicineModalOpen(true);
+                      }}
+                      className="text-blue-500 hover:bg-blue-50 p-2 rounded-full"
+                    >
+                      <Eye size={16} />
+                    </button>
+                    <button
+                      onClick={() =>
+                        setMedicines(medicines.filter((_, i) => i !== index))
+                      }
+                      className="text-red-500 hover:bg-red-50 p-2 rounded-full"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
               ))}
               <button

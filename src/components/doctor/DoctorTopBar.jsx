@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
-import { doc, getDoc, writeBatch } from "firebase/firestore";
+import { doc, getDoc, writeBatch, getDocs } from "firebase/firestore";
 import { db } from "../../firebase";
 import {
   collection,
@@ -78,21 +78,46 @@ export default function TopBar() {
       );
 
       scanner.render(
-        (decodedText) => {
-          // Success Callback
+        async (decodedText) => {
+          // Success Callback - try to resolve to a patient doc
           console.log(`Scan result: ${decodedText}`);
-          scanner.clear();
-          setShowScanner(false);
+          try {
+            // Try direct doc id first
+            const direct = await getDoc(doc(db, "patients", decodedText));
+            if (direct.exists()) {
+              scanner.clear();
+              setShowScanner(false);
+              navigate(`/dashboard/doctor/patient/${direct.id}`);
+              return;
+            }
 
-          // Assuming QR code contains Patient ID (e.g., PAT-1234)
-          // Navigate to patient details
-          // In real app, we might need to lookup the doc ID from the PAT- ID first
-          // But here let's assume decodedText IS the doc ID or we search for it.
-          // For now, let's treat it as a search query or direct ID.
+            // Fallback: search by patientId field (e.g., PAT-1234)
+            const q = query(
+              collection(db, "patients"),
+              where("patientId", "==", decodedText),
+            );
+            const snap = await getDocs(q);
+            if (!snap.empty) {
+              const p = snap.docs[0];
+              scanner.clear();
+              setShowScanner(false);
+              navigate(`/dashboard/doctor/patient/${p.id}`);
+              return;
+            }
 
-          alert(`Scanned: ${decodedText}. Navigating...`);
-          // Navigate to patient details if it looks like an ID, else search
-          navigate(`/dashboard/doctor`); // Placeholder navigation - would go to specific patient
+            // Not found
+            alert(`No patient found for scanned code: ${decodedText}`);
+          } catch (err) {
+            console.error("QR lookup failed", err);
+            alert("Failed to lookup scanned code. Try again.");
+          } finally {
+            try {
+              scanner.clear();
+            } catch (e) {
+              // ignore
+            }
+            setShowScanner(false);
+          }
         },
         (error) => {
           // Error Callback - ignore frame errors
@@ -196,7 +221,7 @@ export default function TopBar() {
           </span>
         </p>
 
-        <div className="relative w-full max-w-md group">
+        <div className="relative w-full max-w-sm lg:max-w-xs group">
           <Search
             size={16}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200"
@@ -442,24 +467,23 @@ export default function TopBar() {
 
       {/* QR Scanner Modal */}
       {showScanner && (
-        <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full relative overflow-hidden">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full relative overflow-hidden">
             <button
               onClick={() => setShowScanner(false)}
-              className="absolute top-2 right-2 p-2 bg-gray-100 rounded-full hover:bg-gray-200 z-10"
+              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors z-10"
             >
               <X size={20} />
             </button>
             <div className="p-6 text-center">
-              <h2 className="text-xl font-bold mb-4">Scan Patient QR Code</h2>
+              <h2 className="text-xl font-bold mb-2">Scan Patient QR Code</h2>
+              <p className="text-sm text-gray-500 mb-6">
+                Point your camera at a patient's QR code to view their profile.
+              </p>
               <div
                 id="reader"
-                className="w-full h-64 bg-gray-100 rounded-lg overflow-hidden relative"
+                className="w-full h-64 bg-black rounded-xl overflow-hidden shadow-inner relative border-4 border-blue-50"
               ></div>
-              <p className="text-sm text-muted mt-4">
-                Point current camera at a patient's QR code to view their
-                profile.
-              </p>
             </div>
           </div>
         </div>

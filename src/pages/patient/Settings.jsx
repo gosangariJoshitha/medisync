@@ -175,22 +175,24 @@ export default function Settings() {
     <div className="fade-in max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">Settings</h1>
 
-      <div className="card mb-6">
-        <h3 className="font-semibold mb-4 text-blue-800">
-          Alarm & Notifications
-        </h3>
-        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-          <div>
-            <p className="font-bold">Test Alarm System</p>
-            <p className="text-sm text-gray-500">
-              Check if your device plays sound and shows alerts.
-            </p>
+      {!currentDoctor && (
+        <div className="card mb-6">
+          <h3 className="font-semibold mb-4 text-blue-800">
+            Alarm & Notifications
+          </h3>
+          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div>
+              <p className="font-bold">Test Alarm System</p>
+              <p className="text-sm text-gray-500">
+                Check if your device plays sound and shows alerts.
+              </p>
+            </div>
+            <button onClick={testAlarm} className="btn btn-primary">
+              Test Now
+            </button>
           </div>
-          <button onClick={testAlarm} className="btn btn-primary">
-            Test Now
-          </button>
         </div>
-      </div>
+      )}
 
       <div className="card mb-6">
         <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
@@ -325,17 +327,12 @@ export default function Settings() {
         )}
       </div>
 
-      <div className="card mb-6">
-        <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-          <Link2 size={20} className="text-primary" /> Doctor Linking
-        </h3>
+      {!currentDoctor && (
+        <div className="card mb-6">
+          <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+            <Link2 size={20} className="text-primary" /> Doctor Linking
+          </h3>
 
-        {currentDoctor ? (
-          <div className="bg-green-50 text-green-800 p-4 rounded border border-green-200">
-            <strong>Linked to Doctor ID:</strong> {currentDoctor}
-            <p className="text-sm mt-1">Contact admin to unlink.</p>
-          </div>
-        ) : (
           <form onSubmit={handleLink}>
             <p className="text-sm text-muted mb-4">
               Enter your Doctor's Unique ID to link your account. This will
@@ -352,8 +349,8 @@ export default function Settings() {
               <button className="btn btn-primary">Link Account</button>
             </div>
           </form>
-        )}
-      </div>
+        </div>
+      )}
 
       <button
         onClick={logout}

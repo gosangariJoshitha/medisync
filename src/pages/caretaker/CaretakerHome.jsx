@@ -144,8 +144,8 @@ export default function CaretakerHome() {
       <h1 className="text-2xl font-semibold mb-6">Start Monitoring</h1>
 
       {criticalCount > 0 && (
-        <div className="mb-6 p-4 bg-red-100 border border-red-200 rounded-lg flex items-center gap-4 animate-pulse">
-          <div className="p-2 bg-red-200 text-red-700 rounded-full">
+        <div className="mb-8 p-4 bg-red-50 border border-red-200 shadow-sm rounded-xl flex items-center gap-4 animate-pulse">
+          <div className="p-2 bg-red-100 text-red-600 rounded-full">
             <AlertTriangle size={24} />
           </div>
           <div>
@@ -154,31 +154,18 @@ export default function CaretakerHome() {
             </h3>
             <p className="text-red-700 font-medium">
               {criticalCount} patient{criticalCount > 1 ? "s" : ""} reported
-              critical status. Please check immediately.
+              critical status. Please check their profiles immediately.
             </p>
           </div>
         </div>
       )}
 
-      <div className="card mb-8 bg-blue-50 border-blue-200">
-        <h3 className="font-semibold mb-2 flex items-center gap-2 text-blue-800">
-          <Plus size={20} /> Link New Patient
-        </h3>
-        <form onSubmit={handleLinkPatient} className="flex gap-4 items-center">
-          <input
-            className="input max-w-sm bg-white"
-            placeholder="Enter Patient ID (e.g. PAT-123)"
-            value={linkId}
-            onChange={(e) => setLinkId(e.target.value)}
-            required
-          />
-          <button type="submit" className="btn btn-primary">
-            Link & Monitor
-          </button>
-        </form>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold text-gray-800">Your Patients</h2>
+        <span className="text-sm text-gray-500 font-medium">
+          {allPatients.length} Active
+        </span>
       </div>
-
-      <h2 className="text-xl font-semibold mb-4">Your Patients</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {allPatients.map((patient) => (
@@ -226,7 +213,14 @@ function PatientStatusCard({ patient }) {
           </div>
           <div>
             <h3 className="font-bold text-lg">{patient.fullName}</h3>
-            <p className="text-xs text-muted">ID: {patient.patientId}</p>
+            <p className="text-xs text-muted font-medium mb-1">
+              ID: {patient.patientId}
+            </p>
+            {patient.doctorUid && (
+              <p className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded inline-block border border-blue-100">
+                Doctor: DOC-{patient.doctorUid.substring(0, 4).toUpperCase()}
+              </p>
+            )}
           </div>
         </div>
         {isRisk && <AlertTriangle className="text-red-500 animate-pulse" />}

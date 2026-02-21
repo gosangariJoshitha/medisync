@@ -53,11 +53,6 @@ export default function PatientSidebar() {
       icon: <ShoppingBag size={20} />,
       label: "Pharmacy",
     },
-    {
-      path: "/dashboard/patient/settings",
-      icon: <Settings size={20} />,
-      label: "Settings",
-    },
   ];
 
   return (

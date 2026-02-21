@@ -1,5 +1,13 @@
 import { useState, useEffect } from "react";
-import { Bell, User, Phone, QrCode, LogOut, Settings } from "lucide-react";
+import {
+  Bell,
+  User,
+  Phone,
+  QrCode,
+  LogOut,
+  Settings,
+  ChevronDown,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -215,47 +223,56 @@ export default function PatientTopBar() {
           )}
         </div>
 
-        <Link
-          to="/dashboard/patient/settings"
-          className="btn btn-outline"
-          style={{
-            padding: "0.5rem",
-            border: "none",
-            display: "flex",
-            alignItems: "center",
-          }}
-        >
-          <Settings size={20} className="text-muted" />
-        </Link>
+        {/* Profile Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => {
+              setShowProfileMenu(!showProfileMenu);
+              setShowNotifications(false);
+            }}
+            className={`btn btn-outline border-none p-2 text-muted hover:text-primary hover:bg-blue-50 rounded-full flex items-center gap-2 ${showProfileMenu ? "bg-blue-50 text-primary" : ""}`}
+            title="Profile"
+          >
+            <User size={20} />
+            <ChevronDown size={14} className="opacity-50" />
+          </button>
 
-        <button
-          className="btn btn-primary"
-          style={{
-            padding: "0.5rem 1rem",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-          }}
-        >
-          <QrCode size={18} />
-          <span className="text-sm">Scan</span>
-        </button>
-
-        <button
-          onClick={() => logout()}
-          className="btn btn-outline hover:bg-red-50 hover:text-red-600 hover:border-red-200 transaction-colors"
-          style={{
-            marginLeft: "1rem",
-            borderColor: "var(--border)",
-            color: "var(--text-muted)",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-          }}
-        >
-          <LogOut size={18} />
-          <span>Logout</span>
-        </button>
+          {showProfileMenu && (
+            <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 shadow-xl rounded-lg z-50 animate-in fade-in slide-in-from-top-2 p-4">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+                  <User size={24} />
+                </div>
+                <div>
+                  <p className="font-bold text-gray-800 line-clamp-1">
+                    {patientData?.fullName || "Patient"}
+                  </p>
+                  <p className="text-xs text-muted truncate">
+                    {currentUser?.email}
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded flex items-center gap-2">
+                  <QrCode size={16} /> My QR Code
+                </button>
+                <Link
+                  to="/dashboard/patient/settings"
+                  className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded flex items-center gap-2"
+                  onClick={() => setShowProfileMenu(false)}
+                >
+                  <Settings size={16} /> Settings
+                </Link>
+                <button
+                  onClick={() => logout()}
+                  className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded flex items-center gap-2"
+                >
+                  <LogOut size={16} /> Logout
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <style>{`
