@@ -113,7 +113,14 @@ export default function CaretakerTopBar({ title }) {
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-96 bg-white border border-gray-200 shadow-2xl rounded-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+            <div
+              className="absolute mt-2 bg-white border border-gray-200 shadow-2xl rounded-xl overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 right-0 origin-top-right"
+              style={{
+                width: "350px",
+                maxWidth: "calc(100vw - 2rem)",
+                transform: "translateX(-15px)",
+              }}
+            >
               <div className="p-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50 flex justify-between items-center">
                 <div>
                   <h3 className="font-bold text-base text-gray-900">

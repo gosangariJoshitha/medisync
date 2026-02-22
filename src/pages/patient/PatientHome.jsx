@@ -49,7 +49,10 @@ export default function PatientHome() {
   };
 
   const getFirstName = () => {
-    const fullName = userProfile?.fullName || currentUser?.displayName;
+    const fullName =
+      userProfile?.fullName ||
+      currentUser?.fullName ||
+      currentUser?.displayName;
     if (fullName) return fullName.split(" ")[0];
     if (currentUser?.email) return currentUser.email.split("@")[0];
     return "Patient";
@@ -97,8 +100,8 @@ export default function PatientHome() {
     const medsRef = collection(db, collectionName, documentId, "medicines");
     const unsubscribeMeds = onSnapshot(medsRef, (snapshot) => {
       const medsList = snapshot.docs.map((doc) => ({
-        id: doc.id,
         ...doc.data(),
+        id: doc.id,
       }));
       setMedicines(medsList);
     });
@@ -325,38 +328,36 @@ export default function PatientHome() {
     );
   };
 
-  // Helpers to determine active days and next occurrence
   const parseTimes = (med) => {
     if (!med) return [];
+    let times = [];
     if (med.timeDisplay)
-      return Array.isArray(med.timeDisplay)
-        ? med.timeDisplay
-        : [med.timeDisplay];
-    if (med.times) return Array.isArray(med.times) ? med.times : [med.times];
-    if (med.timing) return [med.timing];
-    return [];
+      times = times.concat(
+        Array.isArray(med.timeDisplay) ? med.timeDisplay : [med.timeDisplay],
+      );
+    if (med.times)
+      times = times.concat(Array.isArray(med.times) ? med.times : [med.times]);
+    if (med.timing) times = times.concat([med.timing]);
+
+    // Filter out empties and return unique
+    times = [...new Set(times.filter(Boolean))];
+
+    // Fallback if somehow no times are set but medicine exists, show it anyway so it's not hidden
+    if (times.length === 0) return ["Not set"];
+
+    return times;
   };
 
   const isActiveOnDate = (med, date) => {
-    // If no explicit start/end dates, assume active indefinitely (legacy medicines)
-    if (!med.startDate) return true;
-
-    const start = new Date(med.startDate);
-    start.setHours(0, 0, 0, 0);
-
-    if (date < start) return false;
-
-    if (!med.endDate || med.endDate.toLowerCase() === "continuous") {
-      return true; // No end date or continuous
-    }
-
-    const end = new Date(med.endDate);
-    if (!isNaN(end.getTime())) {
-      end.setHours(23, 59, 59, 999);
+    // Extremely permissive check: assume active if it hasn't explicitly passed its end date.
+    try {
+      if (!med.endDate || med.endDate === "Continuous") return true;
+      const end = new Date(med.endDate + "T23:59:59");
       if (date > end) return false;
+      return true;
+    } catch (e) {
+      return true;
     }
-
-    return true;
   };
 
   const findNextOccurrence = (med) => {
@@ -394,9 +395,7 @@ export default function PatientHome() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const todays = medicines.filter(
-      (m) => isActiveOnDate(m, new Date()) && parseTimes(m).length > 0,
-    );
+    const todays = medicines.filter((m) => isActiveOnDate(m, new Date()));
     if (todays.length > 0) return todays;
 
     // find next upcoming across medicines
@@ -421,7 +420,13 @@ export default function PatientHome() {
       // 1. Update Medicine Status
       const collectionName = currentUser.sourceCollection || "users"; // Should persist from AuthContext
       const documentId = currentUser.id || currentUser.uid;
-      const medRef = doc(db, collectionName, documentId, "medicines", medId);
+      const medRef = doc(
+        db,
+        collectionName,
+        documentId,
+        "medicines",
+        String(medId),
+      );
       // handle cancel-snooze separately
       if (action === "cancel-snooze") {
         const medRef = doc(db, collectionName, documentId, "medicines", medId);
@@ -456,7 +461,7 @@ export default function PatientHome() {
       // For immediate user doc update, let's look at current snapshot and modify this one item.
 
       const updatedMeds = medicines.map((m) =>
-        m.id === medId
+        String(m.id) === String(medId)
           ? { ...m, status: action, lastAction: todayStr, snoozedUntil: null }
           : m,
       );
@@ -469,10 +474,33 @@ export default function PatientHome() {
       const newAdherence =
         totalCount > 0 ? Math.round((takenCount / totalCount) * 100) : 100;
 
-      // 3. Update User Doc
+      // 3. Streak Logic
+      let newStreak = parseInt(userProfile?.streak, 10);
+      if (isNaN(newStreak)) newStreak = 0;
+      let lastStreakDate = userProfile?.lastStreakDate || null;
+
+      if (action === "taken") {
+        if (lastStreakDate !== todayStr.split("T")[0]) {
+          // If the last streak was yesterday, increment. If it was earlier, reset to 1.
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+          if (lastStreakDate === yesterdayStr || lastStreakDate === null) {
+            newStreak += 1;
+          } else {
+            // Gap in days, reset streak to 1
+            newStreak = 1;
+          }
+          lastStreakDate = todayStr.split("T")[0];
+        }
+      }
+
+      // 4. Update User Doc
       const userRef = doc(db, collectionName, documentId);
       await updateDoc(userRef, {
-        streak: action === "taken" ? increment(1) : 0, // Simplified streak logic
+        streak: newStreak,
+        lastStreakDate: lastStreakDate,
         adherenceScore: newAdherence,
         dailyProgress: {
           taken: takenCount,
@@ -785,7 +813,7 @@ function TimelineCard({ med, onAction, userProfile, medicines }) {
           </div>
 
           <div className="flex items-center gap-2">
-            {isSnoozed ? (
+            {isSnoozed && currentStatus === "pending" ? (
               <div className="flex items-center gap-2 bg-yellow-100 text-yellow-800 px-4 py-2 rounded-full font-bold">
                 <Clock size={16} className="animate-pulse" />
                 Snoozed to{" "}
@@ -801,46 +829,62 @@ function TimelineCard({ med, onAction, userProfile, medicines }) {
                   <XCircle size={16} />
                 </button>
               </div>
-            ) : currentStatus === "pending" ? (
+            ) : (
               <div className="flex gap-2">
                 <button
-                  onClick={() => onAction(med.id, "skipped")}
-                  className="btn btn-outline border-red-200 text-red-600 hover:bg-red-50 hover:border-red-500 flex items-center gap-1"
+                  onClick={() => {
+                    if (currentStatus === "pending")
+                      onAction(med.id, "skipped");
+                  }}
+                  disabled={currentStatus !== "pending"}
+                  className={`btn btn-outline flex items-center gap-1 ${
+                    currentStatus === "skipped"
+                      ? "bg-red-500 text-white border-red-600 font-bold opacity-100 cursor-not-allowed"
+                      : currentStatus !== "pending"
+                        ? "border-gray-200 text-gray-400 cursor-not-allowed opacity-50"
+                        : "border-red-200 text-red-600 hover:bg-red-50 hover:border-red-500"
+                  }`}
                 >
-                  <XCircle size={18} /> Skip
+                  <XCircle size={18} />{" "}
+                  {currentStatus === "skipped" ? "Skipped" : "Skip"}
                 </button>
                 <button
                   onClick={() => {
-                    const val = window.prompt("Snooze minutes (e.g. 30)", "30");
-                    const mins = parseInt(val, 10);
-                    if (!isNaN(mins) && mins > 0)
-                      onAction(med.id, "snooze", { minutes: mins });
+                    if (currentStatus === "pending") {
+                      const val = window.prompt(
+                        "Snooze minutes (e.g. 30)",
+                        "30",
+                      );
+                      const mins = parseInt(val, 10);
+                      if (!isNaN(mins) && mins > 0)
+                        onAction(med.id, "snooze", { minutes: mins });
+                    }
                   }}
-                  className="btn btn-outline border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-500 flex items-center gap-1"
+                  disabled={currentStatus !== "pending"}
+                  className={`btn btn-outline flex items-center gap-1 ${
+                    currentStatus !== "pending"
+                      ? "border-gray-200 text-gray-400 cursor-not-allowed opacity-50 hidden"
+                      : "border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-500"
+                  }`}
                 >
                   <Clock size={18} /> Snooze
                 </button>
                 <button
-                  onClick={() => onAction(med.id, "taken")}
-                  className="btn btn-primary bg-green-500 hover:bg-green-600 border-none flex items-center gap-1 shadow-md"
+                  onClick={() => {
+                    if (currentStatus === "pending") onAction(med.id, "taken");
+                  }}
+                  disabled={currentStatus !== "pending"}
+                  className={`btn flex items-center gap-1 shadow-md ${
+                    currentStatus === "taken"
+                      ? "bg-green-600 text-white border-green-700 font-bold opacity-100 cursor-not-allowed"
+                      : currentStatus !== "pending"
+                        ? "border-gray-200 text-gray-400 bg-gray-100 cursor-not-allowed opacity-50"
+                        : "btn-primary bg-green-500 hover:bg-green-600 border-none"
+                  }`}
                 >
-                  <CheckCircle size={18} /> Take Now
+                  <CheckCircle size={18} />{" "}
+                  {currentStatus === "taken" ? "Taken" : "Take Now"}
                 </button>
-              </div>
-            ) : (
-              <div
-                className={`px-4 py-2 rounded-full font-bold shadow-sm uppercase flex items-center gap-2 ${
-                  currentStatus === "taken"
-                    ? "bg-green-100 text-green-700"
-                    : "bg-red-100 text-red-700"
-                }`}
-              >
-                {currentStatus === "taken" ? (
-                  <CheckCircle size={18} />
-                ) : (
-                  <XCircle size={18} />
-                )}
-                {currentStatus}
               </div>
             )}
           </div>
@@ -861,14 +905,26 @@ function UpcomingScheduleSection({ medicines }) {
     today.setHours(0, 0, 0, 0);
 
     medicines.forEach((med) => {
-      if (!med.startDate || !med.endDate) return;
+      // Relaxed active date check
+      let startDateStr = med.startDate;
+      if (!startDateStr) {
+        // Fallback to today if no start date
+        startDateStr = today.toISOString().split("T")[0];
+      }
 
-      const startDate = new Date(med.startDate);
-      const endDate = new Date(med.endDate);
-      endDate.setHours(23, 59, 59, 999);
+      const startDate = new Date(startDateStr + "T00:00:00");
+      let endDate = null;
+
+      if (med.endDate && med.endDate !== "Continuous") {
+        try {
+          endDate = new Date(med.endDate + "T23:59:59");
+        } catch (e) {
+          // Keep null
+        }
+      }
 
       // Only include medicines that are scheduled or upcoming
-      if (endDate < today) return;
+      if (endDate && endDate < today) return;
 
       // Parse timing to get hours (assumes format like "09:00 AM")
       let times = [];
@@ -876,11 +932,14 @@ function UpcomingScheduleSection({ medicines }) {
         times = Array.isArray(med.timeDisplay)
           ? med.timeDisplay
           : [med.timeDisplay];
+      } else if (med.times) {
+        times = Array.isArray(med.times) ? med.times : [med.times];
       } else if (med.timing) {
         times = [med.timing];
-      } else if (med.times) {
-        times = med.times;
       }
+
+      times = [...new Set(times.filter(Boolean))];
+      if (times.length === 0) times = ["Not set"];
 
       // For each day in the schedule, add medicine entries
       for (let i = 0; i < 7; i++) {
@@ -888,7 +947,7 @@ function UpcomingScheduleSection({ medicines }) {
         currentDate.setDate(currentDate.getDate() + i);
 
         // Check if medicine is active on this date
-        if (currentDate >= startDate && currentDate <= endDate) {
+        if (currentDate >= startDate && (!endDate || currentDate <= endDate)) {
           times.forEach((time) => {
             upcoming.push({
               id: `${med.id}-${currentDate.toISOString()}-${time}`,

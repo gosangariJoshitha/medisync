@@ -41,7 +41,7 @@ export default function Appointments() {
         );
         const querySnapshot = await getDocs(q);
         setAppointments(
-          querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+          querySnapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id })),
         );
       }
     }

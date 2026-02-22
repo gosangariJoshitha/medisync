@@ -1,6 +1,19 @@
 import { useState, useEffect } from "react";
 import { Award, Trophy, TrendingUp, Star } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip as PieTooltip,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip as LineTooltip,
+  CartesianGrid,
+  Legend,
+} from "recharts";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   doc,
@@ -40,7 +53,7 @@ export default function AnalyticsRewards() {
         const usersRef = collection(db, "patients");
         const q = query(usersRef, orderBy("points", "desc"), limit(5));
         const lbSnap = await getDocs(q);
-        setLeaderboard(lbSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLeaderboard(lbSnap.docs.map((d) => ({ ...d.data(), id: d.id })));
       }
     }
     fetchData();
@@ -51,6 +64,27 @@ export default function AnalyticsRewards() {
     { name: "Missed", value: 100 - stats.adherence },
   ];
   const COLORS = ["#10B981", "#EF4444"];
+
+  // Mock Trend Data for 7 Days (In production: aggregate dailyProgress from DB)
+  const trendData = [
+    { name: "Mon", adherence: Math.max(0, stats.adherence - 15) },
+    { name: "Tue", adherence: Math.max(0, stats.adherence - 10) },
+    { name: "Wed", adherence: Math.max(0, stats.adherence - 5) },
+    { name: "Thu", adherence: Math.max(0, stats.adherence - 8) },
+    { name: "Fri", adherence: Math.max(0, stats.adherence - 2) },
+    { name: "Sat", adherence: Math.max(0, stats.adherence + 2) },
+    { name: "Sun", adherence: stats.adherence },
+  ];
+
+  const getStreakInsight = (streak) => {
+    if (streak === 0) return "Let's build a new habit today!";
+    if (streak < 3) return "Great start! Keep it up.";
+    if (streak < 7) return "You're on a roll! Consistency is key.";
+    if (streak < 14) return "1 Week+! Excellent dedication to your health.";
+    if (streak < 30)
+      return "Outstanding! You're building a rock-solid routine.";
+    return "Incredible! You are a MediSync champion!";
+  };
 
   return (
     <div className="fade-in">
@@ -71,7 +105,10 @@ export default function AnalyticsRewards() {
           <h3 className="text-3xl font-bold text-orange-700">
             {stats.streak} Days
           </h3>
-          <p className="text-muted">Current Streak</p>
+          <p className="text-muted mb-2">Current Streak</p>
+          <p className="text-xs font-semibold text-orange-800 bg-orange-50 px-2 py-1 rounded inline-block">
+            {getStreakInsight(stats.streak)}
+          </p>
         </div>
         <div className="card text-center">
           <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-4">
@@ -107,7 +144,7 @@ export default function AnalyticsRewards() {
                     />
                   ))}
                 </Pie>
-                <Tooltip />
+                <PieTooltip />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -123,7 +160,56 @@ export default function AnalyticsRewards() {
           </div>
         </div>
 
-        <div className="card">
+        <div className="card lg:col-span-2">
+          <h3 className="font-semibold mb-4">7-Day Adherence Trend</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={trendData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#E5E7EB"
+                />
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#6B7280" }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#6B7280" }}
+                  domain={[0, 100]}
+                />
+                <LineTooltip
+                  contentStyle={{
+                    borderRadius: "8px",
+                    border: "none",
+                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                  }}
+                />
+                <Legend verticalAlign="top" height={36} />
+                <Line
+                  type="monotone"
+                  dataKey="adherence"
+                  name="Adherence Score %"
+                  stroke="#3B82F6"
+                  strokeWidth={3}
+                  dot={{
+                    r: 4,
+                    fill: "#3B82F6",
+                    strokeWidth: 2,
+                    stroke: "#fff",
+                  }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="card lg:col-span-2">
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-semibold">Leaderboard</h3>
             <Award className="text-primary" />

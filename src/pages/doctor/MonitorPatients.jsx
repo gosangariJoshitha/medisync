@@ -149,7 +149,7 @@ function PatientStatusCard({ patient, currentUser, isMonitoring }) {
     // Subscribe to patient's medicines to compute today's schedule live
     const medsRef = collection(db, "patients", patient.id, "medicines");
     const unsubscribe = onSnapshot(medsRef, (snap) => {
-      const meds = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const meds = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
 
       const todayStr = new Date().toISOString().split("T")[0];
       let total = 0;

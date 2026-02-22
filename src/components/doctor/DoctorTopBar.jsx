@@ -314,7 +314,14 @@ export default function TopBar() {
           {/* ... (Existing Notification Logic) ... */}
 
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-96 bg-white border border-gray-200 shadow-2xl rounded-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+            <div
+              className="absolute mt-2 bg-white border border-gray-200 shadow-2xl rounded-xl overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 right-0 origin-top-right"
+              style={{
+                width: "350px",
+                maxWidth: "calc(100vw - 2rem)",
+                transform: "translateX(-15px)",
+              }}
+            >
               {/* ... Notification Content ... */}
               <div className="p-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50 flex justify-between items-center">
                 <div>
@@ -430,7 +437,15 @@ export default function TopBar() {
           </button>
 
           {showProfileMenu && (
-            <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 shadow-xl rounded-lg z-50 animate-in fade-in slide-in-from-top-2 p-4">
+            <div
+              className="absolute mt-2 bg-white border border-gray-200 shadow-xl rounded-lg z-[100] animate-in fade-in slide-in-from-top-2 p-4 right-0 origin-top-right"
+              style={{
+                width: "250px",
+                minWidth: "250px",
+                maxWidth: "calc(100vw - 2rem)",
+                transform: "translateX(-15px)",
+              }}
+            >
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary">
                   <User size={24} />

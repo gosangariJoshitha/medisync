@@ -21,6 +21,7 @@ import {
   getDoc,
   onSnapshot,
   updateDoc,
+  increment,
 } from "firebase/firestore";
 
 export default function MyMedicines() {
@@ -51,7 +52,7 @@ export default function MyMedicines() {
     const documentId = currentUser.id || currentUser.uid;
     const medsRef = collection(db, collectionName, documentId, "medicines");
     const unsubscribe = onSnapshot(medsRef, (snapshot) => {
-      setMedicines(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setMedicines(snapshot.docs.map((d) => ({ ...d.data(), id: d.id })));
     });
 
     return () => unsubscribe();
@@ -61,15 +62,23 @@ export default function MyMedicines() {
     if (!window.confirm("Delete this medicine?")) return;
     const collectionName = currentUser.sourceCollection || "users";
     const documentId = currentUser.id || currentUser.uid;
-    await deleteDoc(doc(db, collectionName, documentId, "medicines", id));
-    setMedicines(medicines.filter((m) => m.id !== id));
+    await deleteDoc(
+      doc(db, collectionName, documentId, "medicines", String(id)),
+    );
+    setMedicines(medicines.filter((m) => String(m.id) !== String(id)));
   };
 
   const handleAction = async (id, action) => {
     try {
       const collectionName = currentUser.sourceCollection || "users";
       const documentId = currentUser.id || currentUser.uid;
-      const medRef = doc(db, collectionName, documentId, "medicines", id);
+      const medRef = doc(
+        db,
+        collectionName,
+        documentId,
+        "medicines",
+        String(id),
+      );
       if (action === "snooze") {
         const val = window.prompt("Snooze minutes (e.g. 30)", "30");
         const mins = parseInt(val, 10);
@@ -88,7 +97,69 @@ export default function MyMedicines() {
         status: action,
         snoozedUntil: null,
       });
-      alert(`Marked ${action}`);
+
+      const updatedMeds = medicines.map((m) =>
+        String(m.id) === String(id)
+          ? { ...m, status: action, lastAction: todayStr, snoozedUntil: null }
+          : m,
+      );
+
+      const isToday = (dateString) => {
+        if (!dateString) return false;
+        const d = new Date(dateString);
+        const t = new Date();
+        return (
+          d.getDate() === t.getDate() &&
+          d.getMonth() === t.getMonth() &&
+          d.getFullYear() === t.getFullYear()
+        );
+      };
+
+      const takenCount = updatedMeds.filter(
+        (m) => m.status === "taken" && isToday(m.lastAction),
+      ).length;
+
+      const totalCount = updatedMeds.length;
+      const newAdherence =
+        totalCount > 0 ? Math.round((takenCount / totalCount) * 100) : 100;
+
+      const userRef = doc(db, collectionName, documentId);
+      const userSnap = await getDoc(userRef);
+      const userProfile = userSnap.exists() ? userSnap.data() : {};
+
+      // Streak Logic
+      let newStreak = parseInt(userProfile?.streak, 10);
+      if (isNaN(newStreak)) newStreak = 0;
+      let lastStreakDate = userProfile?.lastStreakDate || null;
+      const todayDateStr = todayStr.split("T")[0];
+
+      if (action === "taken") {
+        if (lastStreakDate !== todayDateStr) {
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+          if (lastStreakDate === yesterdayStr || lastStreakDate === null) {
+            newStreak += 1; // Consecutive day or legacy preservation
+          } else {
+            newStreak = 1; // Broken streak or first day
+          }
+          lastStreakDate = todayDateStr;
+        }
+      }
+
+      await updateDoc(userRef, {
+        streak: newStreak,
+        lastStreakDate: lastStreakDate,
+        adherenceScore: newAdherence,
+        dailyProgress: {
+          taken: takenCount,
+          total: totalCount,
+          date: todayDateStr,
+        },
+      });
+
+      alert(`Marked ${action} and stats updated.`);
     } catch (e) {
       console.error("Medicine Action Error: ", e);
       alert("Failed to update medicine: " + e.message);
@@ -186,24 +257,76 @@ export default function MyMedicines() {
 
               <div className="flex flex-col items-end gap-3">
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => handleAction(med.id, "taken")}
-                    className="btn btn-sm btn-outline border-green-200 text-green-700 hover:bg-green-50 shadow-sm flex items-center gap-1"
-                  >
-                    <CheckCircle size={14} /> Take
-                  </button>
-                  <button
-                    onClick={() => handleAction(med.id, "skipped")}
-                    className="btn btn-sm btn-outline border-red-200 text-red-700 hover:bg-red-50 shadow-sm flex items-center gap-1"
-                  >
-                    <XCircle size={14} /> Skip
-                  </button>
-                  <button
-                    onClick={() => handleAction(med.id, "snooze")}
-                    className="btn btn-sm btn-outline border-blue-200 text-blue-700 hover:bg-blue-50 shadow-sm flex items-center gap-1"
-                  >
-                    <Clock size={14} /> Snooze
-                  </button>
+                  {(() => {
+                    const isToday = (dateString) => {
+                      if (!dateString) return false;
+                      const d = new Date(dateString);
+                      const t = new Date();
+                      return (
+                        d.getDate() === t.getDate() &&
+                        d.getMonth() === t.getMonth() &&
+                        d.getFullYear() === t.getFullYear()
+                      );
+                    };
+                    const statusToday = isToday(med.lastAction)
+                      ? med.status
+                      : null;
+                    const isSnoozed =
+                      med.snoozedUntil &&
+                      new Date(med.snoozedUntil) > new Date();
+
+                    return (
+                      <>
+                        <button
+                          onClick={() => {
+                            if (!statusToday) handleAction(med.id, "taken");
+                          }}
+                          disabled={!!statusToday}
+                          className={`btn btn-sm shadow-sm flex items-center gap-1 ${
+                            statusToday === "taken"
+                              ? "bg-green-500 text-white border-green-600 font-bold opacity-100 cursor-not-allowed"
+                              : statusToday
+                                ? "btn-outline border-gray-200 text-gray-400 cursor-not-allowed opacity-50"
+                                : "btn-outline border-green-200 text-green-700 hover:bg-green-50"
+                          }`}
+                        >
+                          <CheckCircle size={14} />{" "}
+                          {statusToday === "taken" ? "Taken" : "Take"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (!statusToday) handleAction(med.id, "skipped");
+                          }}
+                          disabled={!!statusToday}
+                          className={`btn btn-sm shadow-sm flex items-center gap-1 ${
+                            statusToday === "skipped"
+                              ? "bg-red-500 text-white border-red-600 font-bold opacity-100 cursor-not-allowed"
+                              : statusToday
+                                ? "btn-outline border-gray-200 text-gray-400 cursor-not-allowed opacity-50"
+                                : "btn-outline border-red-200 text-red-700 hover:bg-red-50"
+                          }`}
+                        >
+                          <XCircle size={14} />{" "}
+                          {statusToday === "skipped" ? "Skipped" : "Skip"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (!statusToday) handleAction(med.id, "snooze");
+                          }}
+                          disabled={!!statusToday}
+                          className={`btn btn-sm shadow-sm flex items-center gap-1 ${
+                            isSnoozed && !statusToday
+                              ? "bg-blue-500 text-white border-blue-600 hover:bg-blue-600 font-bold"
+                              : statusToday
+                                ? "btn-outline border-gray-200 text-gray-400 cursor-not-allowed opacity-50 hidden"
+                                : "btn-outline border-blue-200 text-blue-700 hover:bg-blue-50"
+                          }`}
+                        >
+                          <Clock size={14} /> {isSnoozed ? "Snoozed" : "Snooze"}
+                        </button>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 <div className="flex items-center gap-3 w-full justify-end border-t border-gray-100 pt-3 mt-1">

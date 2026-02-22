@@ -42,19 +42,24 @@ export default function PatientTopBar() {
   };
 
   const getFirstName = () => {
-    const fullName = patientData?.fullName || currentUser?.displayName;
+    const fullName =
+      patientData?.fullName ||
+      currentUser?.fullName ||
+      currentUser?.displayName;
     if (fullName) return fullName.split(" ")[0];
     if (currentUser?.email) return currentUser.email.split("@")[0];
     return "Patient";
   };
 
   useEffect(() => {
-    async function fetchPatientData() {
-      if (currentUser) {
-        const collectionName = currentUser.sourceCollection || "users";
-        const documentId = currentUser.id || currentUser.uid;
-        const docRef = doc(db, collectionName, documentId);
-        const docSnap = await getDoc(docRef);
+    let unsubscribeUser = null;
+
+    if (currentUser) {
+      const collectionName = currentUser.sourceCollection || "users";
+      const documentId = currentUser.id || currentUser.uid;
+      const docRef = doc(db, collectionName, documentId);
+
+      unsubscribeUser = onSnapshot(docRef, (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           setPatientData(data);
@@ -64,9 +69,8 @@ export default function PatientTopBar() {
             setShowEmergency(false);
           }
         }
-      }
+      });
     }
-    fetchPatientData();
 
     // Real-time Notifications
     if (currentUser) {
@@ -85,7 +89,10 @@ export default function PatientTopBar() {
         setNotifications(notifs);
         setUnreadCount(notifs.filter((n) => !n.read).length);
       });
-      return () => unsubscribe();
+      return () => {
+        if (unsubscribeUser) unsubscribeUser();
+        unsubscribe();
+      };
     }
   }, [currentUser]);
 
@@ -184,7 +191,14 @@ export default function PatientTopBar() {
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-96 bg-white border border-gray-200 shadow-2xl rounded-xl overflow-hidden z-50">
+            <div
+              className="absolute mt-2 bg-white border border-gray-200 shadow-2xl rounded-xl overflow-hidden z-[100] right-0 origin-top-right"
+              style={{
+                width: "350px",
+                maxWidth: "calc(100vw - 2rem)",
+                transform: "translateX(-15px)",
+              }}
+            >
               <div className="p-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50 flex justify-between items-center">
                 <div>
                   <h3 className="font-bold text-base text-gray-900">
@@ -262,7 +276,15 @@ export default function PatientTopBar() {
           </button>
 
           {showProfileMenu && (
-            <div className="absolute right-0 mt-2 w-56 max-w-[calc(100vw-2rem)] origin-top-right bg-white border border-gray-200 shadow-xl rounded-lg z-50 animate-in fade-in slide-in-from-top-2 p-4">
+            <div
+              className="absolute mt-2 origin-top-right bg-white border border-gray-200 shadow-xl rounded-lg z-[100] animate-in fade-in slide-in-from-top-2 p-4 right-0"
+              style={{
+                width: "220px",
+                minWidth: "220px",
+                maxWidth: "calc(100vw - 2rem)",
+                transform: "translateX(-15px)",
+              }}
+            >
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary">
                   <User size={24} />

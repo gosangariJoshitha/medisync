@@ -54,14 +54,22 @@ export default function PatientDetails() {
     const patientRef = doc(db, "patients", id);
     const unsubscribePatient = onSnapshot(patientRef, (docSnap) => {
       if (docSnap.exists()) {
-        setPatient({ id: docSnap.id, ...docSnap.data(), sourceCollection: "patients" });
+        setPatient({
+          id: docSnap.id,
+          ...docSnap.data(),
+          sourceCollection: "patients",
+        });
         setLoading(false); // Found in new collection
       } else {
         // Fallback to 'users'
         const userRef = doc(db, "users", id);
         getDoc(userRef).then((userSnap) => {
           if (userSnap.exists()) {
-            setPatient({ id: userSnap.id, ...userSnap.data(), sourceCollection: "users" });
+            setPatient({
+              id: userSnap.id,
+              ...userSnap.data(),
+              sourceCollection: "users",
+            });
           } else {
             setPatient(null);
           }
@@ -75,7 +83,7 @@ export default function PatientDetails() {
     // Let's listen to 'patients' primarily.
     const medsRef = collection(db, "patients", id, "medicines");
     const unsubscribeMeds = onSnapshot(medsRef, (snapshot) => {
-      const medsList = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const medsList = snapshot.docs.map((d) => ({ ...d.data(), id: d.id }));
       if (medsList.length > 0) {
         setMedicines(medsList);
       } else {
@@ -83,7 +91,7 @@ export default function PatientDetails() {
         const legacyMedsRef = collection(db, "users", id, "medicines");
         getDocs(legacyMedsRef).then((snap) => {
           if (!snap.empty) {
-            setMedicines(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+            setMedicines(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
           } else {
             setMedicines([]);
           }

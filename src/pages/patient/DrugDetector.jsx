@@ -44,11 +44,11 @@ export default function DrugDetector() {
         <label className="label font-bold text-gray-700">
           Enter Batch Number / Barcode ID
         </label>
-        <div className="flex gap-2 mb-6">
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
             <input
               type="text"
-              className="input pl-10 uppercase tracking-widest font-mono"
+              className="input pl-10 uppercase tracking-widest font-mono w-full"
               placeholder="e.g. BTC-90210-X"
               value={code}
               onChange={(e) => setCode(e.target.value)}
@@ -58,7 +58,7 @@ export default function DrugDetector() {
           <button
             onClick={handleVerify}
             disabled={!code || status === "scanning"}
-            className="btn btn-primary min-w-[120px]"
+            className="btn btn-primary sm:w-auto w-full min-w-[120px]"
           >
             {status === "scanning" ? "Verifying..." : "Verify"}
           </button>

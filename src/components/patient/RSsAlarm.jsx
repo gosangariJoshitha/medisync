@@ -76,7 +76,7 @@ export default function RSsAlarm() {
     );
 
     const unsubscribe = onSnapshot(medsRef, (snapshot) => {
-      const meds = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const meds = snapshot.docs.map((d) => ({ ...d.data(), id: d.id }));
       setMedicines(meds);
     });
 

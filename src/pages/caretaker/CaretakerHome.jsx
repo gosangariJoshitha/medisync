@@ -40,7 +40,7 @@ export default function CaretakerHome() {
     );
 
     const unsubscribePatients = onSnapshot(qPatients, (snap) => {
-      const patientsList = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const patientsList = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
       setPatients((prev) => {
         // We can't easily merge with legacy here without access to legacy state in closure if we use simple set.
         // But we can use a functional update or just simple set since we will combine in render.

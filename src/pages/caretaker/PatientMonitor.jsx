@@ -61,7 +61,7 @@ export default function PatientMonitor() {
               // Also fetch meds from legacy
               const legacyMedsRef = collection(db, "users", id, "medicines");
               onSnapshot(legacyMedsRef, (snap) => {
-                setMedicines(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+                setMedicines(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
               });
             } else {
               navigate("/dashboard/caretaker");
@@ -77,7 +77,7 @@ export default function PatientMonitor() {
     const unsubscribeMeds = onSnapshot(
       medsRef,
       (snapshot) => {
-        setMedicines(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setMedicines(snapshot.docs.map((d) => ({ ...d.data(), id: d.id })));
       },
       (error) => console.error("Error fetching meds", error),
     );
