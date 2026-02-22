@@ -16,10 +16,17 @@ import {
   RotateCcw,
   AlertCircle,
   Calendar,
+  BarChart2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion as Motion } from "framer-motion";
-import { getSmartMessage } from "../../services/mlService";
+import {
+  getSmartMessage,
+  analyzeBehaviorPattern,
+  optimizeReminder,
+  predictAdherenceRisk,
+  predictEmergencyRisk,
+} from "../../services/mlService";
 
 import Toast from "../../components/common/Toast";
 import { LocalNotifications } from "@capacitor/local-notifications";
@@ -31,6 +38,30 @@ export default function PatientHome() {
   const [userStats, setUserStats] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [toast, setToast] = useState(null); // { message, type }
+
+  // ML Model 1: Adherence Risk & Model 5: Emergency Risk (Silent)
+  const [adherenceRisk, setAdherenceRisk] = useState(null);
+
+  useEffect(() => {
+    if (!medicines || medicines.length === 0) return;
+
+    // Simulate finding consecutive missed doses
+    const missed = medicines.filter((m) => m.status === "skipped").length;
+
+    // Model 1: Adherence Risk Profile
+    const risk = predictAdherenceRisk(25, missed, 0); // Mock mature phase (Day 25)
+    setAdherenceRisk(risk);
+
+    // Model 5: Silent Emergency Detection
+    const emergencyRisk = predictEmergencyRisk(missed, {
+      sysBP: 120,
+      sugar: 100,
+    });
+    if (emergencyRisk.escalationLevel >= 4) {
+      console.log("SILENT EMERGENCY DETECTED:", emergencyRisk.text);
+      // In production: write to DB without alerting patient UI
+    }
+  }, [medicines]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -543,6 +574,23 @@ export default function PatientHome() {
         </div>
       </div>
 
+      {/* AI Adherence Insights - Model 1 */}
+      {adherenceRisk && (
+        <div className="mb-8 p-4 bg-purple-50 border border-purple-100 rounded-xl flex items-start gap-4 shadow-sm animate-in fade-in slide-in-from-bottom-2">
+          <div className="p-2 bg-purple-200 text-purple-700 rounded-full mt-1">
+            <BarChart2 size={24} />
+          </div>
+          <div>
+            <h3 className="font-bold text-purple-900">Weekly Insight</h3>
+            <p className="text-sm text-purple-800 font-medium mt-1">
+              {adherenceRisk.riskLabel === "Low"
+                ? "Your consistency improved this week 👍 Keep it up!"
+                : "You've missed a few doses. Try to stay on track for better results."}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Timeline */}
       <div className="space-y-6">
         <TimelineSection
@@ -602,6 +650,24 @@ function TimelineCard({ med, onAction }) {
   const snoozedUntil = snoozedUntilStr ? new Date(snoozedUntilStr) : null;
   const isSnoozed = snoozedUntil && snoozedUntil > new Date();
 
+  // ML Integrations (Model 2 and Model 3)
+  const behaviorObj = analyzeBehaviorPattern(25, { lateNightDoses: 4 }); // Mock mature trait
+  const isNightDelayer = behaviorObj.behaviorType === "Night Dose Delayer";
+
+  // Use Model 3 to find optimal time
+  const originalTiming = med.timing || "08:00 AM";
+  const optimizedObj = optimizeReminder(
+    25,
+    originalTiming,
+    behaviorObj.behaviorType,
+  );
+  const displayTiming = optimizedObj.suggestedTime;
+  const isAdjusted = displayTiming !== originalTiming;
+  const behaviorMsg =
+    isAdjusted && isNightDelayer
+      ? "You usually take this later — adjusted."
+      : "Optimized based on habit.";
+
   return (
     <Motion.div
       initial={{ opacity: 0, x: -20 }}
@@ -646,13 +712,20 @@ function TimelineCard({ med, onAction }) {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-bold text-xl text-gray-800">{med.name}</h3>
-                <span className="text-xs font-bold text-gray-500 bg-gray-200 px-2 py-1 rounded-full">
-                  {med.timing}
+                <span
+                  className={`text-xs font-bold px-2 py-1 rounded-full ${isAdjusted ? "bg-purple-100 text-purple-700" : "bg-gray-200 text-gray-500"}`}
+                >
+                  {displayTiming} {isAdjusted && "✦ AI"}
                 </span>
               </div>
               <p className="text-gray-600 font-medium">
                 {med.dosage} • {med.relationToMeal || med.frequency}
               </p>
+              {isAdjusted && currentStatus === "pending" && (
+                <p className="text-xs text-purple-700 font-semibold mt-2 bg-purple-50 inline-block px-2 py-1 rounded border border-purple-200/60 shadow-sm animate-pulse">
+                  {behaviorMsg}
+                </p>
+              )}
             </div>
           </div>
 

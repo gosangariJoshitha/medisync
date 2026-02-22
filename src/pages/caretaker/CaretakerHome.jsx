@@ -13,7 +13,10 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { motion as Motion } from "framer-motion";
-import { calculateRiskScore } from "../../services/mlService";
+import {
+  predictAdherenceRisk,
+  predictEmergencyRisk,
+} from "../../services/mlService";
 
 export default function CaretakerHome() {
   const { currentUser } = useAuth();
@@ -76,8 +79,12 @@ export default function CaretakerHome() {
   }, [patients, legacyPatients]);
 
   const criticalCount = allPatients.filter((p) => {
-    const risk = calculateRiskScore(p.adherenceScore || 100, 0); // Simplified risk check
-    return risk.level === "Critical";
+    // Treat misses as abstract metric for this view
+    const missed = p.dailyProgress
+      ? p.dailyProgress.total - p.dailyProgress.taken
+      : 0;
+    const emergencyRisk = predictEmergencyRisk(missed, p.vitals);
+    return emergencyRisk.escalationLevel >= 4;
   }).length;
 
   return (
@@ -123,18 +130,24 @@ export default function CaretakerHome() {
 }
 
 function PatientStatusCard({ patient }) {
-  // ML-Based Risk Logic
-  const riskAnalysis = calculateRiskScore(patient.adherenceScore || 100, 0);
-  const isRisk = riskAnalysis.level === "Critical";
-  const isAttention = riskAnalysis.level === "Attention";
+  // ML Integrations
+  const missedDoses = patient.dailyProgress
+    ? patient.dailyProgress.total - patient.dailyProgress.taken
+    : 0;
+  const adherenceRisk = predictAdherenceRisk(25, missedDoses, 0); // Model 1
+  const emergencyRisk = predictEmergencyRisk(missedDoses, patient.vitals); // Model 5
+
+  const isCritical =
+    emergencyRisk.escalationLevel >= 4 || adherenceRisk.riskLabel === "High";
+  const isAttention = adherenceRisk.riskLabel === "Medium" && !isCritical;
 
   // Style logic
-  const statusColor = isRisk
+  const statusColor = isCritical
     ? "text-red-600"
     : isAttention
       ? "text-yellow-600"
       : "text-green-600";
-  const statusBg = isRisk
+  const statusBg = isCritical
     ? "bg-red-50"
     : isAttention
       ? "bg-yellow-50"
@@ -143,7 +156,7 @@ function PatientStatusCard({ patient }) {
   return (
     <Motion.div
       whileHover={{ y: -5 }}
-      className={`card border-l-4 ${isRisk ? "border-l-red-500" : "border-l-green-500"}`}
+      className={`card border-l-4 ${isCritical ? "border-l-red-500" : isAttention ? "border-l-yellow-500" : "border-l-green-500"}`}
     >
       <div className="flex justify-between items-start mb-4">
         <div className="flex items-center gap-3">
@@ -164,8 +177,14 @@ function PatientStatusCard({ patient }) {
             )}
           </div>
         </div>
-        {isRisk && <AlertTriangle className="text-red-500 animate-pulse" />}
+        {isCritical && <AlertTriangle className="text-red-500 animate-pulse" />}
       </div>
+
+      {isCritical && (
+        <div className="mb-4 bg-red-100 text-red-700 text-xs font-bold px-3 py-1.5 rounded-lg">
+          Severity: {emergencyRisk.text} (Level {emergencyRisk.escalationLevel})
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div className="text-center p-2 bg-gray-50 rounded">

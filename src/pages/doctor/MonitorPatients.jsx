@@ -1,6 +1,15 @@
 import { useEffect, useState, useRef } from "react";
 import { db } from "../../firebase";
-import { collection, query, where, onSnapshot, addDoc, setDoc, doc, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  addDoc,
+  setDoc,
+  doc,
+  serverTimestamp,
+} from "firebase/firestore";
 import {
   CheckCircle,
   XCircle,
@@ -15,6 +24,10 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { motion as Motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import {
+  predictAdherenceRisk,
+  predictEmergencyRisk,
+} from "../../services/mlService";
 
 export default function MonitorPatients() {
   const { currentUser } = useAuth();
@@ -88,16 +101,37 @@ export default function MonitorPatients() {
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {patients.map((patient) => (
-            <PatientStatusCard
-              key={patient.id}
-              patient={patient}
-              currentUser={currentUser}
-              isMonitoring={isMonitoring}
-            />
-          ))}
-        </div>
+        <>
+          {/* Predictive Emergency Alerts - Model 5 */}
+          {patients.filter((p) => {
+            const missed = p.dailyProgress
+              ? p.dailyProgress.total - p.dailyProgress.taken
+              : 0;
+            return predictEmergencyRisk(missed, p.vitals).escalationLevel >= 4;
+          }).length > 0 && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl shadow-sm flex items-center gap-3 text-red-700 animate-pulse">
+              <AlertTriangle size={24} />
+              <div>
+                <h3 className="font-bold">Predictive Emergency Alert</h3>
+                <p className="font-medium text-sm">
+                  Critical risk detected for one or more patients. Immediate
+                  review required.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {patients.map((patient) => (
+              <PatientStatusCard
+                key={patient.id}
+                patient={patient}
+                currentUser={currentUser}
+                isMonitoring={isMonitoring}
+              />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
@@ -126,7 +160,9 @@ function PatientStatusCard({ patient, currentUser, isMonitoring }) {
         // Determine if medicine is active today based on start/end date
         const start = m.startDate || todayStr;
         const end = m.endDate === "Continuous" || !m.endDate ? null : m.endDate;
-        const inRange = new Date(start) <= new Date() && (!end || new Date(end) >= new Date());
+        const inRange =
+          new Date(start) <= new Date() &&
+          (!end || new Date(end) >= new Date());
         if (!inRange) return;
 
         // times can be an array of HH:MM strings
@@ -139,7 +175,11 @@ function PatientStatusCard({ patient, currentUser, isMonitoring }) {
 
         // if no explicit times, infer count from frequency
         if (times.length === 0) {
-          const freqMap = { "Once a day": 1, "Twice a day": 2, "Thrice a day": 3 };
+          const freqMap = {
+            "Once a day": 1,
+            "Twice a day": 2,
+            "Thrice a day": 3,
+          };
           const inferred = freqMap[m.frequency] || 1;
           for (let i = 0; i < inferred; i++) times.push("00:00"); // placeholder times (count only)
         }
@@ -171,9 +211,17 @@ function PatientStatusCard({ patient, currentUser, isMonitoring }) {
 
       // find next upcoming time
       const now = new Date();
-      const next = upcomingTimes.filter((d) => d > now).sort((a, b) => a - b)[0];
+      const next = upcomingTimes
+        .filter((d) => d > now)
+        .sort((a, b) => a - b)[0];
       if (next) {
-        setNextInfo({ date: next, label: next.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
+        setNextInfo({
+          date: next,
+          label: next.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        });
       } else {
         setNextInfo(null);
       }
@@ -182,13 +230,16 @@ function PatientStatusCard({ patient, currentUser, isMonitoring }) {
       (async () => {
         try {
           const adherence = total > 0 ? Math.round((taken / total) * 100) : 100;
-          await setDoc(doc(db, "patients", patient.id, "daily_stats", todayStr), {
-            date: todayStr,
-            taken,
-            total,
-            adherence,
-            updatedAt: serverTimestamp(),
-          });
+          await setDoc(
+            doc(db, "patients", patient.id, "daily_stats", todayStr),
+            {
+              date: todayStr,
+              taken,
+              total,
+              adherence,
+              updatedAt: serverTimestamp(),
+            },
+          );
         } catch (err) {
           console.error("Failed to write daily snapshot:", err);
         }
@@ -197,10 +248,27 @@ function PatientStatusCard({ patient, currentUser, isMonitoring }) {
 
     return () => unsubscribe();
   }, [patient.id]);
+  // Progress (use live medicines subscription values if available)
+  const taken =
+    typeof todayTaken !== "undefined"
+      ? todayTaken
+      : patient.dailyProgress?.taken || 0;
+  const total =
+    typeof todayTotal !== "undefined"
+      ? todayTotal
+      : patient.dailyProgress?.total || 0;
+  const percentage = total > 0 ? (taken / total) * 100 : 0;
+
+  // ML Integrations
   const adherence = patient.adherenceScore || 100;
-  const isCritical = patient.riskStatus === "critical" || adherence < 50;
-  const isAttention =
-    patient.riskStatus === "attention" || (adherence >= 50 && adherence < 80);
+  const missedDoses = Math.max(0, total - taken);
+  const adherenceRisk = predictAdherenceRisk(25, missedDoses, 0); // Model 1
+  const emergencyRisk = predictEmergencyRisk(missedDoses, patient.vitals); // Model 5
+
+  const isCritical =
+    emergencyRisk.escalationLevel >= 4 || adherenceRisk.riskLabel === "High";
+  const isAttention = adherenceRisk.riskLabel === "Medium" && !isCritical;
+  const isStable = !isCritical && !isAttention;
 
   // Derived Status
   const statusColor = isCritical ? "red" : isAttention ? "yellow" : "green";
@@ -214,11 +282,6 @@ function PatientStatusCard({ patient, currentUser, isMonitoring }) {
     : isAttention
       ? "border-yellow-200"
       : "border-green-200";
-
-  // Progress (use live medicines subscription values if available)
-  const taken = typeof todayTaken !== "undefined" ? todayTaken : patient.dailyProgress?.taken || 0;
-  const total = typeof todayTotal !== "undefined" ? todayTotal : patient.dailyProgress?.total || 0;
-  const percentage = total > 0 ? (taken / total) * 100 : 0;
 
   return (
     <Motion.div
@@ -323,7 +386,12 @@ function PatientStatusCard({ patient, currentUser, isMonitoring }) {
   );
 }
 
-function ScheduleNotification({ nextInfo, patient, currentUser, scheduledRef }) {
+function ScheduleNotification({
+  nextInfo,
+  patient,
+  currentUser,
+  scheduledRef,
+}) {
   useEffect(() => {
     if (!nextInfo || !currentUser) return;
 
@@ -335,14 +403,17 @@ function ScheduleNotification({ nextInfo, patient, currentUser, scheduledRef }) 
 
     const timeoutId = setTimeout(async () => {
       try {
-        await addDoc(collection(db, "users", currentUser.uid, "notifications"), {
-          title: `Medicine due: ${patient.fullName}`,
-          message: `A scheduled dose is due for ${patient.fullName} at ${nextInfo.label}`,
-          type: "reminder",
-          read: false,
-          patientId: patient.id,
-          timestamp: serverTimestamp(),
-        });
+        await addDoc(
+          collection(db, "users", currentUser.uid, "notifications"),
+          {
+            title: `Medicine due: ${patient.fullName}`,
+            message: `A scheduled dose is due for ${patient.fullName} at ${nextInfo.label}`,
+            type: "reminder",
+            read: false,
+            patientId: patient.id,
+            timestamp: serverTimestamp(),
+          },
+        );
       } catch (err) {
         console.error("Failed to write scheduled notification:", err);
       } finally {

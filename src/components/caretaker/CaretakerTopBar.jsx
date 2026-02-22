@@ -45,8 +45,19 @@ export default function CaretakerTopBar({ title }) {
           id: doc.id,
           ...doc.data(),
         }));
-        setNotifications(notifs);
-        setUnreadCount(notifs.filter((n) => !n.read).length);
+        
+        // ML Integration: Smart Alert Filters (Model 1 & 5)
+        // Only show critical/emergency escalations to reduce caretaker fatigue
+        const smartNotifs = notifs.filter(n => 
+           n.type === 'critical' || 
+           n.type === 'emergency' || 
+           n.isSmartAlert ||
+           n.title?.toLowerCase().includes('critical') ||
+           n.title?.toLowerCase().includes('emergency')
+        );
+
+        setNotifications(smartNotifs);
+        setUnreadCount(smartNotifs.filter((n) => !n.read).length);
       });
       return () => unsubscribe();
     }

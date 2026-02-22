@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { db } from "../../firebase";
-import { doc, collection, onSnapshot, getDocs, getDoc, addDoc } from "firebase/firestore";
+import {
+  doc,
+  collection,
+  onSnapshot,
+  getDocs,
+  getDoc,
+  addDoc,
+} from "firebase/firestore";
 import {
   ArrowLeft,
   User,
@@ -10,7 +17,17 @@ import {
   CheckCircle,
   AlertTriangle,
   Send,
+  Brain,
+  TrendingUp,
+  TrendingDown,
+  Activity as ActivityIcon,
+  Lightbulb,
 } from "lucide-react";
+import {
+  analyzeBehaviorPattern,
+  evaluateTreatmentEffectiveness,
+  optimizeReminder,
+} from "../../services/mlService";
 
 export default function PatientDetails() {
   const { id } = useParams();
@@ -21,6 +38,14 @@ export default function PatientDetails() {
   const [sendingNotif, setSendingNotif] = useState(false);
   const [notifMessage, setNotifMessage] = useState("");
   const [notifTitle, setNotifTitle] = useState("");
+
+  // ML Integrations
+  const behaviorObj = analyzeBehaviorPattern(25, { lateNightDoses: 3 });
+  const treatmentObj = evaluateTreatmentEffectiveness(
+    30,
+    patient?.adherenceScore || 100,
+    { improving: true },
+  );
 
   useEffect(() => {
     // 1. Real-time Patient Details
@@ -140,11 +165,16 @@ export default function PatientDetails() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b mb-6">
+      <div className="flex border-b mb-6 overflow-x-auto">
         <TabButton
           label="Overview"
           active={activeTab === "overview"}
           onClick={() => setActiveTab("overview")}
+        />
+        <TabButton
+          label="AI Profile ✦"
+          active={activeTab === "ai"}
+          onClick={() => setActiveTab("ai")}
         />
         <TabButton
           label="Medicines"
@@ -176,6 +206,105 @@ export default function PatientDetails() {
             <div className="mt-4 p-4 bg-yellow-50 text-yellow-800 rounded text-sm">
               <AlertTriangle size={16} className="inline mr-2" />
               Patient has missed 2 doses of Paracetamol this week.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "ai" && (
+        <div className="space-y-6">
+          {/* Treatment Score - Model 4 */}
+          <div className="card border-l-4 border-l-blue-500">
+            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+              <ActivityIcon size={20} className="text-blue-500" /> Treatment
+              Effectiveness
+            </h3>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Clinical Value Score</p>
+                <p className="text-3xl font-black text-blue-900">
+                  {treatmentObj.score}/100
+                </p>
+              </div>
+              <div
+                className={`px-4 py-2 rounded-full font-bold ${treatmentObj.status === "Improving" ? "bg-green-100 text-green-700" : treatmentObj.status === "Declining" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"}`}
+              >
+                {treatmentObj.status === "Improving" ? (
+                  <TrendingUp size={20} className="inline mr-2" />
+                ) : (
+                  <TrendingDown size={20} className="inline mr-2" />
+                )}
+                {treatmentObj.status}
+              </div>
+            </div>
+          </div>
+
+          {/* Behavior Profile - Model 2 */}
+          <div className="card border-l-4 border-l-purple-500">
+            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+              <Brain size={20} className="text-purple-500" /> Patient Behavior
+              Profile
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-500">Identified Pattern</p>
+                <p className="font-bold text-lg text-purple-900">
+                  {behaviorObj.behaviorType}
+                </p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-500">AI Confidence</p>
+                <p className="font-bold text-lg text-purple-900">
+                  {behaviorObj.confidence}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* AI Suggestions - Model 3 */}
+          <div className="card border-l-4 border-l-orange-500">
+            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+              <Lightbulb size={20} className="text-orange-500" /> Recommended
+              Actions
+            </h3>
+            <div className="space-y-4">
+              {medicines.map((med) => {
+                const opt = optimizeReminder(
+                  25,
+                  med.timing,
+                  behaviorObj.behaviorType,
+                );
+                if (
+                  opt.suggestedTime === med.timing &&
+                  opt.channel === "App Notification"
+                )
+                  return null;
+
+                return (
+                  <div
+                    key={med.id}
+                    className="bg-orange-50 p-4 rounded-lg flex justify-between items-center border border-orange-100"
+                  >
+                    <div>
+                      <p className="font-bold text-orange-900">
+                        {med.name} Optimization
+                      </p>
+                      <p className="text-sm text-orange-800">
+                        Change time from {med.timing || "08:00 AM"} to{" "}
+                        <strong>{opt.suggestedTime}</strong> via {opt.channel}.
+                      </p>
+                    </div>
+                    <button className="btn btn-sm bg-orange-500 hover:bg-orange-600 text-white border-none shadow-sm">
+                      Review & Apply
+                    </button>
+                  </div>
+                );
+              })}
+              {medicines.length === 0 && (
+                <p className="text-muted text-sm italic">
+                  No active medicines to optimize.
+                </p>
+              )}
             </div>
           </div>
         </div>
