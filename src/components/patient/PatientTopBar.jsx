@@ -30,6 +30,7 @@ export default function PatientTopBar() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [patientData, setPatientData] = useState(null);
   const [showEmergency, setShowEmergency] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false); // Added missing state
 
   useEffect(() => {
     async function fetchPatientData() {

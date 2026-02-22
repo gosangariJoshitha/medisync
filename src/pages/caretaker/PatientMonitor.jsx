@@ -3,7 +3,13 @@ import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { db } from "../../firebase";
 
-import { doc, collection, addDoc, onSnapshot } from "firebase/firestore";
+import {
+  doc,
+  collection,
+  addDoc,
+  onSnapshot,
+  getDoc,
+} from "firebase/firestore";
 import {
   ArrowLeft,
   User,

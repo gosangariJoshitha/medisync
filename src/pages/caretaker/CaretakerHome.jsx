@@ -71,68 +71,9 @@ export default function CaretakerHome() {
   // Actually, let's set loading false when we get data.
   useEffect(() => {
     if (patients.length > 0 || legacyPatients.length > 0) setLoading(false);
-    // Timeout to stop loading if no patients?
     const timer = setTimeout(() => setLoading(false), 2000);
     return () => clearTimeout(timer);
   }, [patients, legacyPatients]);
-
-  // Merge lists
-  // We need to change state definition above first!
-  // But wait, I can't change state definition in this tool call easily without replacing the whole file or top part.
-  // I will just assume I can replace the whole useEffect and state or just use `setPatients` cleverly?
-  // Actually, I'll rewrite the component state part in a separate call if needed.
-  // For now, let's just REPLACE usage of single query with dual query.
-  // But wait, `patients` state is single.
-  // I'll modify the `useEffect` to manage a merged list?
-  // It's hard with two separate listeners updating the same state independently (race conditions).
-  // I'll change `patients` state to `allPatients` which is `{ new: [], legacy: [] }`?
-  // Or just add `legacyPatients` state.
-
-  // Let's restart this file edit plan.
-  // I'll read CaretakerHome again? I technically have it.
-  // I will just add `const [legacyPatients, setLegacyPatients] = useState([]);`
-  // and update the render to `[...patients, ...legacyPatients]`.
-  // Code changes:
-  // 1. Add state.
-  // 2. Add listener.
-  // 3. Update map.
-
-  // Actually, simplest fix for *display* is just to handle the logic.
-  // I'll use `multi_replace` for CaretakerHome.
-
-  const handleLinkPatient = async (e) => {
-    e.preventDefault();
-    try {
-      // 1. Check if patient exists
-      // We are searching by patientId (custom ID) not doc ID for UX,
-      // but strictly we should query. Let's assume input implies Patient Custom ID key.
-      const q = query(
-        collection(db, "patients"),
-        where("patientId", "==", linkId),
-      );
-      const snap = await getDocs(q);
-
-      if (snap.empty) {
-        alert("Patient ID not found.");
-        return;
-      }
-
-      const patientDoc = snap.docs[0];
-
-      // 2. Update patient doc with caretakerUid and caretakerName
-      await updateDoc(doc(db, "patients", patientDoc.id), {
-        caretakerUid: currentUser.uid,
-        caretakerName: currentUser.displayName || "Guardian",
-      });
-
-      setPatients([...patients, { id: patientDoc.id, ...patientDoc.data() }]);
-      setLinkId("");
-      alert("Patient Linked Successfully!");
-    } catch (e) {
-      console.error(e);
-      alert("Error linking patient.");
-    }
-  };
 
   const criticalCount = allPatients.filter((p) => {
     const risk = calculateRiskScore(p.adherenceScore || 100, 0); // Simplified risk check

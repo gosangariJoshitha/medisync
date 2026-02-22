@@ -22,6 +22,8 @@ import { motion as Motion } from "framer-motion";
 import { getSmartMessage } from "../../services/mlService";
 
 import Toast from "../../components/common/Toast";
+import { LocalNotifications } from "@capacitor/local-notifications";
+import { Capacitor } from "@capacitor/core";
 
 export default function PatientHome() {
   const { currentUser } = useAuth();
@@ -68,11 +70,95 @@ export default function PatientHome() {
     };
   }, [currentUser]);
 
-  // Background Alarm Logic
+  // Background Alarm Logic (Web/Foreground)
   useEffect(() => {
     if (!medicines || medicines.length === 0) return;
 
-    // Check every minute
+    // Native Offline Pre-scheduler (Calculates next 7 days and hands to OS)
+    const scheduleNativeAlarms = async () => {
+      if (!Capacitor.isNativePlatform()) return;
+      try {
+        await LocalNotifications.requestPermissions();
+        const pending = await LocalNotifications.getPending();
+        if (pending.notifications.length > 0) {
+          await LocalNotifications.cancel({
+            notifications: pending.notifications,
+          });
+        }
+
+        const notificationsToSchedule = [];
+        let notifId = 1;
+        const now = new Date();
+
+        medicines.forEach((med) => {
+          if (med.endDate && new Date(med.endDate) < now) return;
+
+          const times = med.timeDisplay
+            ? Array.isArray(med.timeDisplay)
+              ? med.timeDisplay
+              : [med.timeDisplay]
+            : med.times
+              ? Array.isArray(med.times)
+                ? med.times
+                : [med.times]
+              : med.timing
+                ? [med.timing]
+                : [];
+
+          for (let i = 0; i < 7; i++) {
+            const d = new Date(now);
+            d.setDate(d.getDate() + i);
+
+            if (med.startDate) {
+              const start = new Date(med.startDate);
+              start.setHours(0, 0, 0, 0);
+              if (d < start) continue;
+            }
+            if (med.endDate) {
+              const end = new Date(med.endDate);
+              end.setHours(23, 59, 59, 999);
+              if (d > end) continue;
+            }
+
+            times.forEach((t) => {
+              const parts = t.match(/(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?/);
+              if (parts) {
+                let hour = parseInt(parts[1], 10);
+                const min = parseInt(parts[2], 10);
+                if (parts[3]) {
+                  const ampm = parts[3].toLowerCase();
+                  if (ampm === "pm" && hour < 12) hour += 12;
+                  if (ampm === "am" && hour === 12) hour = 0;
+                }
+                const scheduleDate = new Date(d);
+                scheduleDate.setHours(hour, min, 0, 0);
+
+                if (scheduleDate > now) {
+                  notificationsToSchedule.push({
+                    title: `Medicine Reminder: ${med.name}`,
+                    body: `It's time to take ${med.dosage || "your medicine"}.`,
+                    id: notifId++,
+                    schedule: { at: scheduleDate },
+                  });
+                }
+              }
+            });
+          }
+        });
+
+        if (notificationsToSchedule.length > 0) {
+          await LocalNotifications.schedule({
+            notifications: notificationsToSchedule,
+          });
+        }
+      } catch (e) {
+        console.warn("Failed to schedule native notifications", e);
+      }
+    };
+
+    scheduleNativeAlarms();
+
+    // Check every minute for foreground/web alerts
     const interval = setInterval(() => {
       const now = new Date();
       // Only care about hours and minutes for comparison

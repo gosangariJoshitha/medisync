@@ -1,0 +1,5 @@
+{
+  "appId": "com.medisync.app",
+  "appName": "MediSync",
+  "webDir": "dist"
+}
