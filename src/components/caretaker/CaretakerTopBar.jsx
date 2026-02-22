@@ -20,6 +20,13 @@ export default function CaretakerTopBar({ title }) {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 18) return "Good Afternoon";
+    return "Good Evening";
+  };
+
   useEffect(() => {
     async function fetchName() {
       if (currentUser) {
@@ -45,15 +52,16 @@ export default function CaretakerTopBar({ title }) {
           id: doc.id,
           ...doc.data(),
         }));
-        
+
         // ML Integration: Smart Alert Filters (Model 1 & 5)
         // Only show critical/emergency escalations to reduce caretaker fatigue
-        const smartNotifs = notifs.filter(n => 
-           n.type === 'critical' || 
-           n.type === 'emergency' || 
-           n.isSmartAlert ||
-           n.title?.toLowerCase().includes('critical') ||
-           n.title?.toLowerCase().includes('emergency')
+        const smartNotifs = notifs.filter(
+          (n) =>
+            n.type === "critical" ||
+            n.type === "emergency" ||
+            n.isSmartAlert ||
+            n.title?.toLowerCase().includes("critical") ||
+            n.title?.toLowerCase().includes("emergency"),
         );
 
         setNotifications(smartNotifs);
@@ -78,7 +86,9 @@ export default function CaretakerTopBar({ title }) {
       {/* Title / Search */}
       <div className="flex items-center gap-4">
         {name && (
-          <h2 className="text-xl font-bold text-primary">Welcome, {name}</h2>
+          <h2 className="text-xl font-bold text-primary">
+            {getGreeting()}, {name}
+          </h2>
         )}
       </div>
 

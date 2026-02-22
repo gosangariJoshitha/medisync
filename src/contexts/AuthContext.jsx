@@ -118,11 +118,18 @@ export function AuthProvider({ children }) {
         }
 
         // 3. Check Patients (Query Fallback for Legacy/Pat-ID keys)
-        const q = query(
-          collection(db, "patients"),
-          where("uid", "==", user.uid),
-        );
-        const querySnap = await getDocs(q);
+        let q = query(collection(db, "patients"), where("uid", "==", user.uid));
+        let querySnap = await getDocs(q);
+
+        if (querySnap.empty) {
+          // Try alternative legacy ID field
+          q = query(
+            collection(db, "patients"),
+            where("patientUid", "==", user.uid),
+          );
+          querySnap = await getDocs(q);
+        }
+
         if (!querySnap.empty) {
           const patientDoc = querySnap.docs[0];
           setUserRole("patient");

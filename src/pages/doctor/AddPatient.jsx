@@ -83,6 +83,7 @@ export default function AddPatient() {
             patientDataLoaded = {
               ...initialPatientData,
               ...patientSnap.data(),
+              sourceCollection: "patients",
             };
             // Medicines from patients/*/medicines
             const medicinesRef = collection(db, "patients", id, "medicines");
@@ -102,6 +103,7 @@ export default function AddPatient() {
               patientDataLoaded = {
                 ...initialPatientData,
                 ...legacySnap.data(),
+                sourceCollection: "users",
               };
 
               const medicinesRef = collection(db, "users", id, "medicines");
@@ -179,29 +181,28 @@ export default function AddPatient() {
           (oldId) => !currentMedIds.includes(oldId),
         );
 
-        // Try deleting from patients/medicines
+        const collectionToUse = patientData.sourceCollection || "patients";
+
+        // Handle Deletions
         for (const medId of medsToDelete) {
           try {
-            await deleteDoc(doc(db, "patients", id, "medicines", medId));
+            await deleteDoc(doc(db, collectionToUse, id, "medicines", medId));
           } catch (e) {
-            await deleteDoc(doc(db, "users", id, "medicines", medId));
+            console.error(e);
           }
         }
 
         // Add/update remaining
-        // We will write to 'patients' collection primarily now.
-        const medsRef = collection(db, "patients", id, "medicines");
+        const medsRef = collection(db, collectionToUse, id, "medicines");
         for (const med of medicines) {
           if (initialMedicineIds.includes(med.id)) {
             try {
               await updateDoc(
-                doc(db, "patients", id, "medicines", med.id),
+                doc(db, collectionToUse, id, "medicines", med.id),
                 med,
               );
             } catch (e) {
-              // If it was in users, move it? Or just update in users?
-              // Let's just update in users for legacy.
-              await updateDoc(doc(db, "users", id, "medicines", med.id), med);
+              console.error(e);
             }
           } else {
             const { id: tempId, ...medData } = med;

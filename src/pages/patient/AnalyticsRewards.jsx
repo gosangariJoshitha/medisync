@@ -22,7 +22,9 @@ export default function AnalyticsRewards() {
     async function fetchData() {
       if (currentUser) {
         // 1. Fetch User Stats
-        const userRef = doc(db, "patients", currentUser.uid);
+        const collectionName = currentUser.sourceCollection || "users";
+        const documentId = currentUser.id || currentUser.uid;
+        const userRef = doc(db, collectionName, documentId);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
           const data = userSnap.data();

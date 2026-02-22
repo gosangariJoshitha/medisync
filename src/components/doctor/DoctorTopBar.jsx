@@ -28,6 +28,13 @@ import { useAuth } from "../../contexts/AuthContext";
 export default function TopBar() {
   const { logout, currentUser } = useAuth();
   const navigate = useNavigate();
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 18) return "Good Afternoon";
+    return "Good Evening";
+  };
   const [doctorName, setDoctorName] = useState("");
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -215,7 +222,7 @@ export default function TopBar() {
       {/* Left: Welcome & Search */}
       <div className="flex items-center gap-8 flex-1">
         <p className="hidden lg:block text-sm text-gray-500 whitespace-nowrap flex-shrink-0">
-          Welcome,{" "}
+          {getGreeting()},{" "}
           <span className="font-bold text-blue-600">
             Dr. {doctorName || "Doctor"}
           </span>

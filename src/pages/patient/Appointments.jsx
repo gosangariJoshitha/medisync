@@ -23,7 +23,8 @@ export default function Appointments() {
       if (currentUser) {
         // 1. Check linked doctor
         const collectionName = currentUser.sourceCollection || "users";
-        const userSnap = await getDoc(doc(db, collectionName, currentUser.uid));
+        const documentId = currentUser.id || currentUser.uid;
+        const userSnap = await getDoc(doc(db, collectionName, documentId));
         if (userSnap.exists()) {
           const data = userSnap.data();
           if (data.doctorUid) {
@@ -36,7 +37,7 @@ export default function Appointments() {
         // 2. Fetch Appointments
         const q = query(
           collection(db, "appointments"),
-          where("patientId", "==", currentUser.uid),
+          where("patientId", "==", documentId),
         );
         const querySnapshot = await getDocs(q);
         setAppointments(
@@ -50,8 +51,9 @@ export default function Appointments() {
   const handleBook = async (e) => {
     e.preventDefault();
     const form = e.target;
+    const documentId = currentUser.id || currentUser.uid;
     const newAppt = {
-      patientId: currentUser.uid,
+      patientId: documentId,
       patientName: currentUser.displayName || "Patient", // Fallback
       date: form.date.value,
       time: form.time.value,

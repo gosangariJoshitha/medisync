@@ -39,8 +39,21 @@ export default function PatientHome() {
   const [userProfile, setUserProfile] = useState(null);
   const [toast, setToast] = useState(null); // { message, type }
 
-  // ML Model 1: Adherence Risk & Model 5: Emergency Risk (Silent)
   const [adherenceRisk, setAdherenceRisk] = useState(null);
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 18) return "Good Afternoon";
+    return "Good Evening";
+  };
+
+  const getFirstName = () => {
+    const fullName = userProfile?.fullName || currentUser?.displayName;
+    if (fullName) return fullName.split(" ")[0];
+    if (currentUser?.email) return currentUser.email.split("@")[0];
+    return "Patient";
+  };
 
   useEffect(() => {
     if (!medicines || medicines.length === 0) return;
@@ -48,8 +61,20 @@ export default function PatientHome() {
     // Simulate finding consecutive missed doses
     const missed = medicines.filter((m) => m.status === "skipped").length;
 
+    // Calculate real days tracked
+    let daysTracked = 1;
+    if (userProfile?.createdAt) {
+      const createdDate = new Date(userProfile.createdAt);
+      daysTracked = Math.max(
+        1,
+        Math.floor(
+          (Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24),
+        ),
+      );
+    }
+
     // Model 1: Adherence Risk Profile
-    const risk = predictAdherenceRisk(25, missed, 0); // Mock mature phase (Day 25)
+    const risk = predictAdherenceRisk(daysTracked, missed, 0);
     setAdherenceRisk(risk);
 
     // Model 5: Silent Emergency Detection
@@ -68,12 +93,8 @@ export default function PatientHome() {
 
     // 1. Real-time Medicines
     const collectionName = currentUser.sourceCollection || "users";
-    const medsRef = collection(
-      db,
-      collectionName,
-      currentUser.uid,
-      "medicines",
-    );
+    const documentId = currentUser.id || currentUser.uid;
+    const medsRef = collection(db, collectionName, documentId, "medicines");
     const unsubscribeMeds = onSnapshot(medsRef, (snapshot) => {
       const medsList = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -83,7 +104,7 @@ export default function PatientHome() {
     });
 
     // 2. Real-time User Stats
-    const userRef = doc(db, collectionName, currentUser.uid);
+    const userRef = doc(db, collectionName, documentId);
     const unsubscribeUser = onSnapshot(userRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -317,11 +338,25 @@ export default function PatientHome() {
   };
 
   const isActiveOnDate = (med, date) => {
-    if (!med.startDate || !med.endDate) return false;
+    // If no explicit start/end dates, assume active indefinitely (legacy medicines)
+    if (!med.startDate) return true;
+
     const start = new Date(med.startDate);
+    start.setHours(0, 0, 0, 0);
+
+    if (date < start) return false;
+
+    if (!med.endDate || med.endDate.toLowerCase() === "continuous") {
+      return true; // No end date or continuous
+    }
+
     const end = new Date(med.endDate);
-    end.setHours(23, 59, 59, 999);
-    return date >= start && date <= end;
+    if (!isNaN(end.getTime())) {
+      end.setHours(23, 59, 59, 999);
+      if (date > end) return false;
+    }
+
+    return true;
   };
 
   const findNextOccurrence = (med) => {
@@ -385,23 +420,11 @@ export default function PatientHome() {
 
       // 1. Update Medicine Status
       const collectionName = currentUser.sourceCollection || "users"; // Should persist from AuthContext
-      const medRef = doc(
-        db,
-        collectionName,
-        currentUser.uid,
-        "medicines",
-        medId,
-      );
+      const documentId = currentUser.id || currentUser.uid;
+      const medRef = doc(db, collectionName, documentId, "medicines", medId);
       // handle cancel-snooze separately
       if (action === "cancel-snooze") {
-        const collectionName = currentUser.sourceCollection || "users";
-        const medRef = doc(
-          db,
-          collectionName,
-          currentUser.uid,
-          "medicines",
-          medId,
-        );
+        const medRef = doc(db, collectionName, documentId, "medicines", medId);
         await updateDoc(medRef, { snoozedUntil: null });
         setToast({ message: `Snooze cancelled`, type: "info" });
         return;
@@ -447,7 +470,7 @@ export default function PatientHome() {
         totalCount > 0 ? Math.round((takenCount / totalCount) * 100) : 100;
 
       // 3. Update User Doc
-      const userRef = doc(db, collectionName, currentUser.uid);
+      const userRef = doc(db, collectionName, documentId);
       await updateDoc(userRef, {
         streak: action === "taken" ? increment(1) : 0, // Simplified streak logic
         adherenceScore: newAdherence,
@@ -469,6 +492,27 @@ export default function PatientHome() {
     }
   };
 
+  const handleLinkCaretaker = async () => {
+    const cid = window.prompt(
+      "Enter Caretaker's Unique ID to link your account:",
+    );
+    if (!cid) return;
+    try {
+      const collectionName = currentUser.sourceCollection || "users";
+      const documentId = currentUser.id || currentUser.uid;
+      await updateDoc(doc(db, collectionName, documentId), {
+        caretakerUid: cid,
+      });
+      setToast({ message: "Caretaker linked successfully!", type: "success" });
+    } catch (e) {
+      console.error(e);
+      setToast({
+        message: "Failed to link caretaker. Check ID.",
+        type: "error",
+      });
+    }
+  };
+
   return (
     <div>
       {toast && (
@@ -481,10 +525,10 @@ export default function PatientHome() {
       <h1 className="text-2xl font-semibold mb-2">Today's Schedule</h1>
 
       {/* Caretaker Prompt */}
-      {!userProfile?.caretakerUid && (
-        <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg flex justify-between items-center text-orange-800">
+      {!(userProfile?.caretakerUid || userProfile?.caretakerName) && (
+        <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center text-orange-800 gap-4">
           <div className="flex gap-3 items-center">
-            <AlertCircle size={24} />
+            <AlertCircle size={24} className="shrink-0" />
             <div>
               <p className="font-semibold">Connect a Caretaker</p>
               <p className="text-sm">
@@ -492,51 +536,35 @@ export default function PatientHome() {
               </p>
             </div>
           </div>
-          <Link
-            to="/dashboard/patient/settings"
-            className="btn btn-sm btn-outline border-orange-300 text-orange-800 hover:bg-orange-100"
+          <button
+            onClick={handleLinkCaretaker}
+            className="btn btn-sm btn-outline border-orange-300 text-orange-800 hover:bg-orange-100 whitespace-nowrap"
           >
             Link Now
-          </Link>
+          </button>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="mb-8">
         {/* Smart Message */}
         <Motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="md:col-span-2 p-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg shadow-lg flex flex-col justify-center"
+          className="p-6 bg-blue-50 border border-blue-100 text-blue-900 rounded-lg shadow-sm flex flex-col justify-center"
         >
           <h2 className="text-xl font-bold mb-2">
-            Good Morning,{" "}
-            {userProfile?.fullName || currentUser.displayName || "Patient"}!
+            {getGreeting()}, {getFirstName()}!
           </h2>
-          <p className="font-medium text-lg opacity-90">
+          <p className="font-medium text-lg text-blue-800">
             {userStats
               ? getSmartMessage(
-                  currentUser.displayName || "Patient",
+                  getFirstName(),
                   userStats.streak,
                   userStats.adherence,
                 )
               : "Loading insights..."}
           </p>
         </Motion.div>
-
-        {/* QR Code Card */}
-        <div className="card flex flex-col items-center justify-center text-center p-6">
-          <h3 className="font-semibold text-gray-800 mb-2">My Medical ID</h3>
-          <div className="bg-white p-2 rounded-lg border shadow-sm mb-2">
-            <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${currentUser.uid}`}
-              alt="Patient QR Code"
-              className="w-28 h-28"
-            />
-          </div>
-          <p className="text-xs text-muted">
-            Scan to view basic medical profile
-          </p>
-        </div>
       </div>
 
       {/* Quick Summary Cards */}
@@ -597,6 +625,7 @@ export default function PatientHome() {
           title="Today's Plan"
           medicines={displayedMeds}
           onAction={handleAction}
+          userProfile={userProfile}
         />
       </div>
 
@@ -608,7 +637,7 @@ export default function PatientHome() {
   );
 }
 
-function TimelineSection({ medicines, onAction }) {
+function TimelineSection({ medicines, onAction, userProfile }) {
   if (medicines.length === 0)
     return (
       <div className="card p-8 text-center text-gray-500 border-dashed border-2">
@@ -627,13 +656,19 @@ function TimelineSection({ medicines, onAction }) {
   return (
     <div className="relative pl-6 border-l-4 border-blue-100 space-y-8">
       {sortedMeds.map((med, index) => (
-        <TimelineCard key={med.id + index} med={med} onAction={onAction} />
+        <TimelineCard
+          key={med.id + index}
+          med={med}
+          onAction={onAction}
+          medicines={medicines}
+          userProfile={userProfile}
+        />
       ))}
     </div>
   );
 }
 
-function TimelineCard({ med, onAction }) {
+function TimelineCard({ med, onAction, userProfile, medicines }) {
   const isToday = (dateString) => {
     if (!dateString) return false;
     const date = new Date(dateString);
@@ -650,14 +685,34 @@ function TimelineCard({ med, onAction }) {
   const snoozedUntil = snoozedUntilStr ? new Date(snoozedUntilStr) : null;
   const isSnoozed = snoozedUntil && snoozedUntil > new Date();
 
+  // Actual Real-Time ML Inputs
+  let daysTracked = 1;
+  if (userProfile?.createdAt) {
+    const createdDate = new Date(userProfile.createdAt);
+    daysTracked = Math.max(
+      1,
+      Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)),
+    );
+  }
+
+  // Count late night doses in history (rudimentary calculation based on lastAction being > 21:00)
+  const lateNightDoses =
+    medicines?.filter((m) => {
+      if (m.status === "taken" && m.lastAction) {
+        const hour = new Date(m.lastAction).getHours();
+        return hour >= 21;
+      }
+      return false;
+    }).length || 0;
+
   // ML Integrations (Model 2 and Model 3)
-  const behaviorObj = analyzeBehaviorPattern(25, { lateNightDoses: 4 }); // Mock mature trait
+  const behaviorObj = analyzeBehaviorPattern(daysTracked, { lateNightDoses });
   const isNightDelayer = behaviorObj.behaviorType === "Night Dose Delayer";
 
   // Use Model 3 to find optimal time
   const originalTiming = med.timing || "08:00 AM";
   const optimizedObj = optimizeReminder(
-    25,
+    daysTracked,
     originalTiming,
     behaviorObj.behaviorType,
   );

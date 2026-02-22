@@ -32,7 +32,8 @@ export default function Settings() {
     async function fetchData() {
       if (currentUser) {
         const collectionName = currentUser.sourceCollection || "users";
-        const snap = await getDoc(doc(db, collectionName, currentUser.uid));
+        const documentId = currentUser.id || currentUser.uid;
+        const snap = await getDoc(doc(db, collectionName, documentId));
         if (snap.exists() && snap.data().doctorUid) {
           setCurrentDoctor(snap.data().doctorUid);
         }
@@ -60,7 +61,8 @@ export default function Settings() {
     // In real app, verify doctor ID first
     try {
       const collectionName = currentUser.sourceCollection || "users";
-      await updateDoc(doc(db, collectionName, currentUser.uid), {
+      const documentId = currentUser.id || currentUser.uid;
+      await updateDoc(doc(db, collectionName, documentId), {
         doctorUid: doctorId,
         role: "patient", // Ensure role
         riskStatus: "stable", // Default
@@ -83,7 +85,8 @@ export default function Settings() {
     setLoading(true);
     try {
       const collectionName = currentUser.sourceCollection || "users";
-      await updateDoc(doc(db, collectionName, currentUser.uid), {
+      const documentId = currentUser.id || currentUser.uid;
+      await updateDoc(doc(db, collectionName, documentId), {
         caretakerUid: null,
         caretakerName: null,
       });
@@ -102,7 +105,8 @@ export default function Settings() {
     setLoading(true);
     try {
       const collectionName = currentUser.sourceCollection || "users";
-      await updateDoc(doc(db, collectionName, currentUser.uid), {
+      const documentId = currentUser.id || currentUser.uid;
+      await updateDoc(doc(db, collectionName, documentId), {
         fullName: profile.fullName,
         phone: profile.phone,
         age: profile.age,
@@ -326,31 +330,6 @@ export default function Settings() {
           </div>
         )}
       </div>
-
-      {!currentDoctor && (
-        <div className="card mb-6">
-          <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-            <Link2 size={20} className="text-primary" /> Doctor Linking
-          </h3>
-
-          <form onSubmit={handleLink}>
-            <p className="text-sm text-muted mb-4">
-              Enter your Doctor's Unique ID to link your account. This will
-              allow them to view your vitals and manage your medicines.
-            </p>
-            <div className="flex gap-2">
-              <input
-                className="input flex-1"
-                placeholder="Enter Doctor ID"
-                value={doctorId}
-                onChange={(e) => setDoctorId(e.target.value)}
-                required
-              />
-              <button className="btn btn-primary">Link Account</button>
-            </div>
-          </form>
-        </div>
-      )}
 
       <button
         onClick={logout}

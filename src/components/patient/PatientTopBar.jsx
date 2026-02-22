@@ -7,6 +7,7 @@ import {
   LogOut,
   Settings,
   ChevronDown,
+  X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
@@ -31,11 +32,28 @@ export default function PatientTopBar() {
   const [patientData, setPatientData] = useState(null);
   const [showEmergency, setShowEmergency] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false); // Added missing state
+  const [showQRModal, setShowQRModal] = useState(false);
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 18) return "Good Afternoon";
+    return "Good Evening";
+  };
+
+  const getFirstName = () => {
+    const fullName = patientData?.fullName || currentUser?.displayName;
+    if (fullName) return fullName.split(" ")[0];
+    if (currentUser?.email) return currentUser.email.split("@")[0];
+    return "Patient";
+  };
 
   useEffect(() => {
     async function fetchPatientData() {
       if (currentUser) {
-        const docRef = doc(db, "users", currentUser.uid);
+        const collectionName = currentUser.sourceCollection || "users";
+        const documentId = currentUser.id || currentUser.uid;
+        const docRef = doc(db, collectionName, documentId);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -52,8 +70,10 @@ export default function PatientTopBar() {
 
     // Real-time Notifications
     if (currentUser) {
+      const collectionName = currentUser.sourceCollection || "users";
+      const documentId = currentUser.id || currentUser.uid;
       const q = query(
-        collection(db, "users", currentUser.uid, "notifications"),
+        collection(db, collectionName, documentId, "notifications"),
         orderBy("timestamp", "desc"),
         limit(10),
       );
@@ -76,8 +96,10 @@ export default function PatientTopBar() {
     if (confirm) {
       try {
         const timestamp = new Date();
+        const collectionName = currentUser.sourceCollection || "users";
+        const documentId = currentUser.id || currentUser.uid;
         // 1. Update Patient Status
-        await updateDoc(doc(db, "users", currentUser.uid), {
+        await updateDoc(doc(db, collectionName, documentId), {
           riskStatus: "critical",
           isEmergency: true,
           lastEmergency: timestamp.toISOString(),
@@ -91,7 +113,7 @@ export default function PatientTopBar() {
               title: "EMERGENCY ALERT",
               message: `Patient ${patientData.fullName} reported distress!`,
               type: "emergency",
-              patientId: currentUser.uid,
+              patientId: documentId,
               read: false,
               timestamp: timestamp,
             },
@@ -117,14 +139,15 @@ export default function PatientTopBar() {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: "0 2rem",
+        padding: "0 1rem",
+        gap: "0.5rem",
       }}
     >
-      <div className="text-lg font-semibold text-primary">
-        Welcome, {patientData?.fullName || "Patient"}
+      <div className="text-sm sm:text-lg font-semibold text-primary truncate flex-1 md:flex-none mr-2">
+        {getGreeting()}, {getFirstName()}
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
         {showEmergency && (
           <button
             onClick={handleEmergency}
@@ -239,14 +262,14 @@ export default function PatientTopBar() {
           </button>
 
           {showProfileMenu && (
-            <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 shadow-xl rounded-lg z-50 animate-in fade-in slide-in-from-top-2 p-4">
+            <div className="absolute right-0 mt-2 w-56 max-w-[calc(100vw-2rem)] origin-top-right bg-white border border-gray-200 shadow-xl rounded-lg z-50 animate-in fade-in slide-in-from-top-2 p-4">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary">
                   <User size={24} />
                 </div>
                 <div>
                   <p className="font-bold text-gray-800 line-clamp-1">
-                    {patientData?.fullName || "Patient"}
+                    {getFirstName()}
                   </p>
                   <p className="text-xs text-muted truncate">
                     {currentUser?.email}
@@ -254,7 +277,13 @@ export default function PatientTopBar() {
                 </div>
               </div>
               <div className="space-y-2">
-                <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setShowQRModal(true);
+                    setShowProfileMenu(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded flex items-center gap-2"
+                >
                   <QrCode size={16} /> My QR Code
                 </button>
                 <Link
@@ -275,6 +304,42 @@ export default function PatientTopBar() {
           )}
         </div>
       </div>
+
+      {/* QR Code Modal */}
+      {showQRModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] px-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 relative shadow-2xl animate-in zoom-in-95 duration-200">
+            <button
+              onClick={() => setShowQRModal(false)}
+              className="absolute top-4 right-4 p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+            >
+              <X size={20} className="text-gray-600" />
+            </button>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-100 text-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                <QrCode size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">
+                My Medical ID
+              </h3>
+              <p className="text-sm text-gray-500 mb-6">
+                Doctors can scan this to securely view your health profile and
+                vitals.
+              </p>
+              <div className="bg-white p-4 rounded-xl border-2 border-dashed border-gray-200 shadow-sm mb-4 flex justify-center">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${currentUser.uid}`}
+                  alt="Patient QR Code"
+                  className="w-48 h-48"
+                />
+              </div>
+              <p className="font-mono text-xs text-gray-400 bg-gray-50 p-2 rounded">
+                ID: {currentUser.uid}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
           @keyframes pulse {

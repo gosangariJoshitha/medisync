@@ -29,44 +29,13 @@ export default function Vitals() {
       if (currentUser) {
         try {
           const collectionName = currentUser.sourceCollection || "users";
-          const vRef = collection(
-            db,
-            collectionName,
-            currentUser.uid,
-            "vitals",
-          );
+          const documentId = currentUser.id || currentUser.uid;
+          const vRef = collection(db, collectionName, documentId, "vitals");
           const q = query(vRef, orderBy("date", "asc"));
           const snap = await getDocs(q);
           const data = snap.docs.map((d) => d.data());
 
-          // If no data, use dummy data for demo
-          if (data.length === 0) {
-            setVitalsData([
-              {
-                date: "2023-10-01",
-                bpSys: 120,
-                bpDia: 80,
-                sugar: 95,
-                weight: 70,
-              },
-              {
-                date: "2023-10-05",
-                bpSys: 118,
-                bpDia: 78,
-                sugar: 98,
-                weight: 69.5,
-              },
-              {
-                date: "2023-10-10",
-                bpSys: 122,
-                bpDia: 82,
-                sugar: 92,
-                weight: 69.2,
-              },
-            ]);
-          } else {
-            setVitalsData(data);
-          }
+          setVitalsData(data);
         } catch (e) {
           console.error(e);
         }
@@ -85,7 +54,12 @@ export default function Vitals() {
     setShowForm(false);
 
     // Save to DB
-    await addDoc(collection(db, "users", currentUser.uid, "vitals"), newEntry);
+    const documentId = currentUser.id || currentUser.uid;
+    const collectionName = currentUser.sourceCollection || "users";
+    await addDoc(
+      collection(db, collectionName, documentId, "vitals"),
+      newEntry,
+    );
   };
 
   return (

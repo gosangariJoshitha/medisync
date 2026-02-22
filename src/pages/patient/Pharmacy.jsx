@@ -10,24 +10,79 @@ import {
 } from "lucide-react";
 import Toast from "../../components/common/Toast";
 
+import { useAuth } from "../../contexts/AuthContext";
+import { db } from "../../firebase";
+import { collection, doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { useEffect } from "react";
+
 export default function Pharmacy() {
-  const [refills] = useState([
-    { id: 1, name: "Metformin 500mg", daysLeft: 5, status: "Low" },
-    { id: 2, name: "Atorvastatin 20mg", daysLeft: 22, status: "Good" },
-  ]);
+  const [refills, setRefills] = useState([]);
+  const { currentUser } = useAuth();
 
   const [toast, setToast] = useState(null);
   const [alarms, setAlarms] = useState({}); // { id: boolean }
 
-  const toggleAlarm = (id) => {
-    setAlarms((prev) => {
-      const newState = !prev[id];
+  useEffect(() => {
+    if (!currentUser) return;
+    const collectionName = currentUser.sourceCollection || "users";
+    const documentId = currentUser.id || currentUser.uid;
+    const userRef = doc(db, collectionName, documentId);
+    const medsRef = collection(db, collectionName, documentId, "medicines");
+
+    // 1. Sync User Alarms
+    const unsubUser = onSnapshot(userRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setAlarms(snapshot.data().smartAlarms || {});
+      }
+    });
+
+    // 2. Sync Medicines
+    const unsubMeds = onSnapshot(medsRef, (snapshot) => {
+      const meds = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          name: data.name,
+          daysLeft: data.alertQuantity || 5, // Mock days left based on alertQuantity
+        };
+      });
+      // Sort to show critically low first
+      meds.sort((a, b) => a.daysLeft - b.daysLeft);
+      setRefills(meds);
+    });
+
+    return () => {
+      unsubUser();
+      unsubMeds();
+    };
+  }, [currentUser]);
+
+  const toggleAlarm = async (id) => {
+    if (!currentUser) return;
+    const newState = !alarms[id];
+    const collectionName = currentUser.sourceCollection || "users";
+    const documentId = currentUser.id || currentUser.uid;
+    const userRef = doc(db, collectionName, documentId);
+
+    try {
+      // Optimistic update for speedy UI response
+      setAlarms({ ...alarms, [id]: newState });
+
+      await updateDoc(userRef, {
+        [`smartAlarms.${id}`]: newState,
+      });
+
       setToast({
         message: newState ? "Smart Alarm Enabled" : "Alarm Disabled",
         type: newState ? "success" : "info",
       });
-      return { ...prev, [id]: newState };
-    });
+    } catch (e) {
+      console.error(e);
+      setToast({
+        message: "Failed to update alarm",
+        type: "error",
+      });
+    }
   };
 
   return (
@@ -64,10 +119,17 @@ export default function Pharmacy() {
                   </p>
                 </div>
                 {med.daysLeft <= 7 && (
-                  <button className="btn btn-xs btn-primary">Order</button>
+                  <button className="btn btn-xs btn-primary shadow-sm hover:bg-blue-600 border-none">
+                    Order
+                  </button>
                 )}
               </div>
             ))}
+            {refills.length === 0 && (
+              <p className="text-gray-500 text-sm italic">
+                No active medicines found.
+              </p>
+            )}
           </div>
         </div>
 

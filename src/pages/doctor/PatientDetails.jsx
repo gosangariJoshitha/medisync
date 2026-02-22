@@ -54,14 +54,14 @@ export default function PatientDetails() {
     const patientRef = doc(db, "patients", id);
     const unsubscribePatient = onSnapshot(patientRef, (docSnap) => {
       if (docSnap.exists()) {
-        setPatient({ id: docSnap.id, ...docSnap.data() });
+        setPatient({ id: docSnap.id, ...docSnap.data(), sourceCollection: "patients" });
         setLoading(false); // Found in new collection
       } else {
         // Fallback to 'users'
         const userRef = doc(db, "users", id);
         getDoc(userRef).then((userSnap) => {
           if (userSnap.exists()) {
-            setPatient({ id: userSnap.id, ...userSnap.data() });
+            setPatient({ id: userSnap.id, ...userSnap.data(), sourceCollection: "users" });
           } else {
             setPatient(null);
           }

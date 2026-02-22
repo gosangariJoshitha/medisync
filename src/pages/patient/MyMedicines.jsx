@@ -36,7 +36,8 @@ export default function MyMedicines() {
     async function checkPermissions() {
       // Check permissions (One-time fetch is fine for permissions as role/link doesn't change often in session)
       const collectionName = currentUser.sourceCollection || "users";
-      const userRef = doc(db, collectionName, currentUser.uid);
+      const documentId = currentUser.id || currentUser.uid;
+      const userRef = doc(db, collectionName, documentId);
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
         const data = userSnap.data();
@@ -47,12 +48,8 @@ export default function MyMedicines() {
 
     // Real-time Meds
     const collectionName = currentUser.sourceCollection || "users";
-    const medsRef = collection(
-      db,
-      collectionName,
-      currentUser.uid,
-      "medicines",
-    );
+    const documentId = currentUser.id || currentUser.uid;
+    const medsRef = collection(db, collectionName, documentId, "medicines");
     const unsubscribe = onSnapshot(medsRef, (snapshot) => {
       setMedicines(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
@@ -63,14 +60,16 @@ export default function MyMedicines() {
   const deleteMedicine = async (id) => {
     if (!window.confirm("Delete this medicine?")) return;
     const collectionName = currentUser.sourceCollection || "users";
-    await deleteDoc(doc(db, collectionName, currentUser.uid, "medicines", id));
+    const documentId = currentUser.id || currentUser.uid;
+    await deleteDoc(doc(db, collectionName, documentId, "medicines", id));
     setMedicines(medicines.filter((m) => m.id !== id));
   };
 
   const handleAction = async (id, action) => {
     try {
       const collectionName = currentUser.sourceCollection || "users";
-      const medRef = doc(db, collectionName, currentUser.uid, "medicines", id);
+      const documentId = currentUser.id || currentUser.uid;
+      const medRef = doc(db, collectionName, documentId, "medicines", id);
       if (action === "snooze") {
         const val = window.prompt("Snooze minutes (e.g. 30)", "30");
         const mins = parseInt(val, 10);
@@ -91,8 +90,8 @@ export default function MyMedicines() {
       });
       alert(`Marked ${action}`);
     } catch (e) {
-      console.error(e);
-      alert("Failed to update medicine");
+      console.error("Medicine Action Error: ", e);
+      alert("Failed to update medicine: " + e.message);
     }
   };
 
@@ -134,13 +133,9 @@ export default function MyMedicines() {
                     const { id, ...medData } = med;
                     const collectionName =
                       currentUser.sourceCollection || "users";
+                    const documentId = currentUser.id || currentUser.uid;
                     const docRef = await addDoc(
-                      collection(
-                        db,
-                        collectionName,
-                        currentUser.uid,
-                        "medicines",
-                      ),
+                      collection(db, collectionName, documentId, "medicines"),
                       medData,
                     );
                     // State update handled by onSnapshot, but we can optimistically update if we want.
