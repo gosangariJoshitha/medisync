@@ -452,10 +452,15 @@ export default function TopBar() {
                 </div>
                 <div>
                   <p className="font-bold text-gray-800 line-clamp-1">
-                    {doctorName || "Doctor"}
+                    Dr. {doctorName || "Doctor"}
                   </p>
                   <p className="text-xs text-muted truncate">
                     {currentUser?.email}
+                  </p>
+                  <p className="text-[10px] font-mono bg-gray-100 text-gray-500 px-2 py-0.5 mt-1 rounded inline-block border border-gray-200">
+                    ID:{" "}
+                    {currentUser?.doctorId ||
+                      `DOC-${currentUser?.uid?.substring(0, 6).toUpperCase()}`}
                   </p>
                 </div>
               </div>

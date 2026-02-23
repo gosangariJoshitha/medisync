@@ -1,4 +1,12 @@
-import { Search, Bell, Settings, User, QrCode, LogOut } from "lucide-react";
+import {
+  Search,
+  Bell,
+  Settings,
+  User,
+  QrCode,
+  LogOut,
+  ChevronDown,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
@@ -19,6 +27,7 @@ export default function CaretakerTopBar({ title }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -30,11 +39,17 @@ export default function CaretakerTopBar({ title }) {
   useEffect(() => {
     async function fetchName() {
       if (currentUser) {
-        const snap = await getDoc(doc(db, "users", currentUser.uid));
+        let snap = await getDoc(doc(db, "caretakers", currentUser.uid));
+        if (!snap.exists()) {
+          snap = await getDoc(doc(db, "users", currentUser.uid));
+        }
+
         if (snap.exists()) {
           setName(
-            snap.data().fullName || currentUser.displayName || "Caretaker",
+            snap.data().fullName || currentUser.displayName || "Guardian",
           );
+        } else {
+          setName("Guardian");
         }
       }
     }
@@ -85,11 +100,9 @@ export default function CaretakerTopBar({ title }) {
     >
       {/* Title / Search */}
       <div className="flex items-center gap-4">
-        {name && (
-          <h2 className="text-xl font-bold text-primary">
-            {getGreeting()}, {name}
-          </h2>
-        )}
+        <h2 className="text-xl font-bold text-primary">
+          {getGreeting()}, {name || "Guardian"}
+        </h2>
       </div>
 
       {/* Right Actions */}
@@ -183,31 +196,60 @@ export default function CaretakerTopBar({ title }) {
           )}
         </div>
 
-        <Link
-          to="/dashboard/caretaker/settings"
-          className="btn btn-outline"
-          style={{
-            padding: "0.5rem",
-            border: "none",
-            display: "flex",
-            alignItems: "center",
-          }}
-        >
-          <Settings size={20} className="text-muted" />
-        </Link>
+        <div className="relative">
+          <button
+            onClick={() => {
+              setShowProfileMenu(!showProfileMenu);
+              setShowNotifications(false);
+            }}
+            className={`btn btn-outline border-none p-2 text-muted hover:text-primary hover:bg-blue-50 rounded-full flex items-center gap-2 ${showProfileMenu ? "bg-blue-50 text-primary" : ""}`}
+            title="Profile"
+          >
+            <User size={20} />
+            <ChevronDown size={14} className="opacity-50" />
+          </button>
 
-        <button
-          onClick={() => logout()}
-          className="btn btn-outline hover:bg-red-50 hover:text-red-600 hover:border-red-200 transaction-colors"
-          style={{
-            marginLeft: "1rem",
-            borderColor: "var(--border)",
-            color: "var(--text-muted)",
-          }}
-        >
-          <LogOut size={18} />
-          <span>Logout</span>
-        </button>
+          {showProfileMenu && (
+            <div
+              className="absolute mt-2 bg-white border border-gray-200 shadow-xl rounded-lg z-[100] animate-in fade-in slide-in-from-top-2 p-4 right-0 origin-top-right"
+              style={{
+                width: "220px",
+                minWidth: "220px",
+                maxWidth: "calc(100vw - 2rem)",
+                transform: "translateX(-15px)",
+              }}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+                  <User size={24} />
+                </div>
+                <div>
+                  <p className="font-bold text-gray-800 line-clamp-1">
+                    {name || "Guardian"}
+                  </p>
+                  <p className="text-xs text-muted truncate">
+                    {currentUser?.email}
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Link
+                  to="/dashboard/caretaker/settings"
+                  className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded flex items-center gap-2"
+                  onClick={() => setShowProfileMenu(false)}
+                >
+                  <Settings size={16} /> Settings
+                </Link>
+                <button
+                  onClick={() => logout()}
+                  className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded flex items-center gap-2"
+                >
+                  <LogOut size={16} /> Logout
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

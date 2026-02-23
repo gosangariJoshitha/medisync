@@ -10,6 +10,7 @@ import {
   getDocs,
   updateDoc,
   doc,
+  getDoc,
   onSnapshot,
 } from "firebase/firestore";
 import { motion as Motion } from "framer-motion";
@@ -130,6 +131,25 @@ export default function CaretakerHome() {
 }
 
 function PatientStatusCard({ patient }) {
+  const [doctorName, setDoctorName] = useState(null);
+
+  useEffect(() => {
+    async function fetchDoctor() {
+      if (patient.doctorUid) {
+        let dSnap = await getDoc(doc(db, "doctors", patient.doctorUid));
+        if (!dSnap.exists()) {
+          dSnap = await getDoc(doc(db, "users", patient.doctorUid));
+        }
+        if (dSnap.exists()) {
+          setDoctorName(dSnap.data().fullName);
+        } else {
+          setDoctorName("Unknown");
+        }
+      }
+    }
+    fetchDoctor();
+  }, [patient.doctorUid]);
+
   // ML Integrations
   const missedDoses = patient.dailyProgress
     ? patient.dailyProgress.total - patient.dailyProgress.taken
@@ -171,8 +191,8 @@ function PatientStatusCard({ patient }) {
               ID: {patient.patientId}
             </p>
             {patient.doctorUid && (
-              <p className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded inline-block border border-blue-100">
-                Doctor: DOC-{patient.doctorUid.substring(0, 4).toUpperCase()}
+              <p className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded inline-block border border-blue-100 mt-1">
+                Doctor: {doctorName ? `Dr. ${doctorName}` : "Loading..."}
               </p>
             )}
           </div>

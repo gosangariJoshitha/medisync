@@ -39,6 +39,10 @@ import CaretakerLayout from "./components/caretaker/CaretakerLayout";
 import CaretakerHome from "./pages/caretaker/CaretakerHome";
 import CaretakerSettings from "./pages/caretaker/Settings";
 import PatientMonitor from "./pages/caretaker/PatientMonitor";
+import CaretakerReports from "./pages/caretaker/CaretakerReports";
+import CaretakerNotifications from "./pages/caretaker/CaretakerNotifications";
+import CaretakerContactDoctor from "./pages/caretaker/CaretakerContactDoctor";
+import CaretakerBookAppointment from "./pages/caretaker/CaretakerBookAppointment";
 
 function App() {
   return (
@@ -125,7 +129,14 @@ function App() {
           >
             <Route index element={<CaretakerHome />} />
             <Route path="monitor/:id" element={<PatientMonitor />} />
-            {/* Other caretaker sub-routes */}
+            <Route path="reports" element={<CaretakerReports />} />
+            <Route path="notifications" element={<CaretakerNotifications />} />
+            <Route path="contact-doctor" element={<CaretakerContactDoctor />} />
+            <Route
+              path="book-appointment"
+              element={<CaretakerBookAppointment />}
+            />
+            <Route path="settings" element={<CaretakerSettings />} />
           </Route>
         </Routes>
       </Router>

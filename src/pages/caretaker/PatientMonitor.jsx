@@ -9,6 +9,11 @@ import {
   addDoc,
   onSnapshot,
   getDoc,
+  updateDoc,
+  query,
+  where,
+  getDocs,
+  serverTimestamp,
 } from "firebase/firestore";
 import {
   ArrowLeft,
@@ -27,8 +32,19 @@ export default function PatientMonitor() {
   const navigate = useNavigate();
   const [patient, setPatient] = useState(null);
   const [medicines, setMedicines] = useState([]);
+  const [doctor, setDoctor] = useState(null);
+  const [assignDocId, setAssignDocId] = useState("");
 
-  const [showApptModal, setShowApptModal] = useState(false);
+  const isToday = (dateString) => {
+    if (!dateString) return false;
+    const date = new Date(dateString);
+    const today = new Date();
+    return (
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
+    );
+  };
 
   useEffect(() => {
     // 1. Patient Details
@@ -44,7 +60,19 @@ export default function PatientMonitor() {
             navigate("/dashboard/caretaker");
             return;
           }
-          setPatient({ id: docSnap.id, ...data });
+          setPatient({ id: docSnap.id, sourceCollection: "patients", ...data });
+          if (data.doctorUid) {
+            getDoc(doc(db, "doctors", data.doctorUid)).then((dSnap) => {
+              if (dSnap.exists()) {
+                setDoctor({ id: dSnap.id, ...dSnap.data() });
+              } else {
+                getDoc(doc(db, "users", data.doctorUid)).then((dSnap2) => {
+                  if (dSnap2.exists())
+                    setDoctor({ id: dSnap2.id, ...dSnap2.data() });
+                });
+              }
+            });
+          }
         } else {
           // Fallback: Check 'users' collection for legacy support
           const legacyRef = doc(db, "users", id);
@@ -56,7 +84,24 @@ export default function PatientMonitor() {
                 navigate("/dashboard/caretaker");
                 return;
               }
-              setPatient({ id: legacySnap.id, ...data });
+              setPatient({
+                id: legacySnap.id,
+                sourceCollection: "users",
+                ...data,
+              });
+
+              if (data.doctorUid) {
+                getDoc(doc(db, "doctors", data.doctorUid)).then((dSnap) => {
+                  if (dSnap.exists()) {
+                    setDoctor({ id: dSnap.id, ...dSnap.data() });
+                  } else {
+                    getDoc(doc(db, "users", data.doctorUid)).then((dSnap2) => {
+                      if (dSnap2.exists())
+                        setDoctor({ id: dSnap2.id, ...dSnap2.data() });
+                    });
+                  }
+                });
+              }
 
               // Also fetch meds from legacy
               const legacyMedsRef = collection(db, "users", id, "medicines");
@@ -88,22 +133,69 @@ export default function PatientMonitor() {
     };
   }, [id]);
 
-  const handleBookAppointment = async (apptData) => {
-    // Book on behalf of patient
+  const handleAssignDoctor = async () => {
+    if (!assignDocId.trim()) return;
     try {
-      await addDoc(collection(db, "appointments"), {
-        patientId: patient.id,
-        patientName: patient.fullName,
-        caretakerId: currentUser.uid,
-        bookedBy: "caretaker",
-        status: "upcoming",
-        ...apptData,
-      });
-      alert("Appointment Booked Successfully!");
-      setShowApptModal(false);
+      const q = query(
+        collection(db, "doctors"),
+        where("doctorId", "==", assignDocId.trim().toUpperCase()),
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const targetDocUid = snap.docs[0].id; // uses UID
+        const targetDocData = snap.docs[0].data();
+
+        // Update both the specific patients collection and potentially legacy user
+        await updateDoc(doc(db, "patients", patient.id), {
+          doctorUid: targetDocUid,
+        });
+
+        setDoctor(targetDocData);
+        setAssignDocId("");
+        alert("Doctor assigned successfully!");
+      } else {
+        alert("Could not find a doctor with that ID.");
+      }
     } catch (e) {
       console.error(e);
-      alert("Booking failed");
+      alert("Error assigning doctor.");
+    }
+  };
+
+  const handleReportEmergency = async () => {
+    if (!patient.doctorUid) {
+      alert("No doctor assigned to report to.");
+      return;
+    }
+    if (window.confirm(`Report critical emergency for ${patient.fullName}?`)) {
+      try {
+        const timestamp = new Date();
+        const collectionName = patient.sourceCollection || "patients";
+
+        // 1. Update Patient Status
+        await updateDoc(doc(db, collectionName, patient.id), {
+          riskStatus: "critical",
+          isEmergency: true,
+          lastEmergency: timestamp.toISOString(),
+        });
+
+        // 2. Notify Doctor
+        await addDoc(
+          collection(db, "users", patient.doctorUid, "notifications"),
+          {
+            title: "CRITICAL EMERGENCY: " + patient.fullName,
+            message: "Guardian has triggered a manual emergency override.",
+            type: "emergency",
+            patientId: patient.id,
+            read: false,
+            timestamp: serverTimestamp(),
+          },
+        );
+        alert("Emergency declared. Doctor has been notified immediately.");
+      } catch (e) {
+        console.error(e);
+        alert("Failed to send emergency report.");
+      }
     }
   };
 
@@ -131,20 +223,48 @@ export default function PatientMonitor() {
                 {patient.riskStatus?.toUpperCase() || "STABLE"}
               </span>
             </p>
-            {patient.doctorUid && (
+            {patient.doctorUid ? (
               <p className="text-sm text-blue-600 font-medium">
-                Linked Doctor ID: {patient.doctorUid}
+                Dr. {doctor?.fullName || "Loading..."} (ID:{" "}
+                {doctor?.doctorId ||
+                  (doctor?.id
+                    ? `REG-${doctor.id.substring(0, 4).toUpperCase()}`
+                    : "Pending")}
+                )
               </p>
+            ) : (
+              <div className="flex bg-white items-center gap-2 mt-2">
+                <input
+                  type="text"
+                  placeholder="Doctor ID (DOC-XXXX)"
+                  className="input input-sm max-w-[200px]"
+                  value={assignDocId}
+                  onChange={(e) => setAssignDocId(e.target.value)}
+                />
+                <button
+                  onClick={handleAssignDoctor}
+                  className="btn btn-primary btn-sm"
+                >
+                  Assign
+                </button>
+              </div>
             )}
           </div>
         </div>
 
         <div className="flex gap-2">
-          <button className="btn btn-outline border-red-200 text-red-600 hover:bg-red-50">
+          <button
+            onClick={handleReportEmergency}
+            className="btn btn-outline border-red-200 text-red-600 hover:bg-red-50"
+          >
             <AlertTriangle size={18} /> Report Emergency
           </button>
           <button
-            onClick={() => setShowApptModal(true)}
+            onClick={() =>
+              navigate("/dashboard/caretaker/book-appointment", {
+                state: { preselectPatient: patient.id },
+              })
+            }
             className="btn btn-primary"
           >
             <Calendar size={18} /> Book Appointment
@@ -165,78 +285,37 @@ export default function PatientMonitor() {
                 <p className="text-sm text-muted">{med.timing}</p>
               </div>
               {/* Real Status Display */}
-              <span
-                className={`text-xs px-2 py-1 rounded font-bold uppercase ${
-                  med.status === "taken"
-                    ? "bg-green-100 text-green-700"
-                    : med.status === "skipped"
-                      ? "bg-red-100 text-red-700"
-                      : "bg-gray-100 text-gray-700"
-                }`}
-              >
-                {med.status || "Scheduled"}
-              </span>
+              {(() => {
+                const takenToday =
+                  isToday(med.lastAction) && med.status === "taken";
+                const skippedToday =
+                  isToday(med.lastAction) && med.status === "skipped";
+                const displayStatus = takenToday
+                  ? "taken"
+                  : skippedToday
+                    ? "skipped"
+                    : "scheduled";
+
+                return (
+                  <span
+                    className={`text-xs px-2 py-1 rounded font-bold uppercase ${
+                      displayStatus === "taken"
+                        ? "bg-green-100 text-green-700"
+                        : displayStatus === "skipped"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    {displayStatus}
+                  </span>
+                );
+              })()}
             </div>
           </div>
         ))}
         {medicines.length === 0 && (
           <p className="text-muted italic">No medicines found.</p>
         )}
-      </div>
-
-      {/* Action Modal */}
-      {showApptModal && (
-        <BookAppointmentModal
-          onClose={() => setShowApptModal(false)}
-          onBook={handleBookAppointment}
-        />
-      )}
-    </div>
-  );
-}
-
-function BookAppointmentModal({ onClose, onBook }) {
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onBook({
-      date: e.target.date.value,
-      time: e.target.time.value,
-      reason: e.target.reason.value,
-      doctorId: "general", // Keep simple
-    });
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg w-full max-w-md">
-        <h2 className="text-xl font-bold mb-4">Book for Patient</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="input-group">
-            <label className="label">Date</label>
-            <input type="date" name="date" required className="input" />
-          </div>
-          <div className="input-group">
-            <label className="label">Time</label>
-            <input type="time" name="time" required className="input" />
-          </div>
-          <div className="input-group">
-            <label className="label">Reason</label>
-            <textarea
-              name="reason"
-              required
-              className="input h-24"
-              placeholder="Description"
-            ></textarea>
-          </div>
-          <div className="flex justify-end gap-2 mt-4">
-            <button type="button" onClick={onClose} className="btn btn-outline">
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary">
-              Confirm Booking
-            </button>
-          </div>
-        </form>
       </div>
     </div>
   );

@@ -17,23 +17,10 @@ export default function Settings() {
   useEffect(() => {
     async function fetchProfile() {
       if (currentUser) {
-        // Since AuthContext already fetches data into currentUser, we can just use that!
-        // But for fresh data, let's query.
-        const role = currentUser.role;
-        const collectionName =
-          role === "doctor"
-            ? "doctors"
-            : role === "patient"
-              ? "patients"
-              : role === "caretaker"
-                ? "caretakers"
-                : "users";
-
-        // Try precise collection first
+        const collectionName = currentUser.sourceCollection || "users";
         let snap = await getDoc(doc(db, collectionName, currentUser.uid));
 
-        if (!snap.exists()) {
-          // Fallback to users
+        if (!snap.exists() && collectionName !== "users") {
           snap = await getDoc(doc(db, "users", currentUser.uid));
         }
 
@@ -43,7 +30,6 @@ export default function Settings() {
             fullName: data.fullName || "",
             email: data.email || currentUser.email,
             phone: data.phone || "",
-            role: data.role, // Store role for update usage
           });
         }
       }
@@ -55,25 +41,7 @@ export default function Settings() {
     e.preventDefault();
     setLoading(true);
     try {
-      const collectionName =
-        currentUser.role === "doctor"
-          ? "doctors"
-          : currentUser.role === "caretaker"
-            ? "caretakers"
-            : "patients";
-      // Note: currentUser.role comes from AuthContext, make sure it's available.
-      // If not, we might need to rely on 'userRole' from context if accessible, or try-catch multiple.
-      // AuthContext exposes `userRole`. Let's use `userRole` if `currentUser.role` isn't set on the object itself yet.
-      // Actually `currentUser` from AuthContext in step 1221 DOES include `...docSnap.data()`, so it HAS `role`.
-
-      const targetCollection =
-        profile.role === "doctor"
-          ? "doctors"
-          : profile.role === "caretaker"
-            ? "caretakers"
-            : profile.role === "patient"
-              ? "patients"
-              : "users";
+      const targetCollection = currentUser.sourceCollection || "users";
 
       try {
         await updateDoc(doc(db, targetCollection, currentUser.uid), {
@@ -81,11 +49,12 @@ export default function Settings() {
           phone: profile.phone,
         });
       } catch (e) {
-        // Fallback to legacy 'users'
-        await updateDoc(doc(db, "users", currentUser.uid), {
-          fullName: profile.fullName,
-          phone: profile.phone,
-        });
+        if (targetCollection !== "users") {
+          await updateDoc(doc(db, "users", currentUser.uid), {
+            fullName: profile.fullName,
+            phone: profile.phone,
+          });
+        }
       }
       alert("Profile updated successfully!");
     } catch (error) {
